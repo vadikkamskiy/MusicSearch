@@ -24,30 +24,6 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
     private ImageView imageView;
     private boolean imageLoaded = false;
     private boolean isCurrentTrack = false;
-        
-    private static final String NORMAL_STYLE = 
-    "-fx-background-color: #2A2F3A; " +
-    "-fx-border-color: #3A4050; " +
-    "-fx-border-width: 1px; " +
-    "-fx-border-radius: 8px; " +
-    "-fx-background-radius: 8px; " +
-    "-fx-cursor: hand;";
-
-    private static final String CURRENT_TRACK_STYLE = 
-    "-fx-background-color: #3E3A57; " +
-    "-fx-border-color: #af7affff; " +
-    "-fx-border-width: 2px; " +
-    "-fx-border-radius: 8px; " +
-    "-fx-background-radius: 8px; " +
-    "-fx-cursor: hand;";
-
-    private static final String HOVER_STYLE = 
-    "-fx-background-color: #323848; " +
-    "-fx-border-color: #4A5063; " +
-    "-fx-border-width: 1px; " +
-    "-fx-border-radius: 8px; " +
-    "-fx-background-radius: 8px; " +
-    "-fx-cursor: hand;";
 
     public MediaWidget(MediaModel mediaModel, PlaybackListener playbackListener) {
         this.mediaModel = mediaModel;
@@ -270,4 +246,28 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
         coverCache.clear();
         MP3CoverExtractor.cleanupOldCoverFiles();
     }
+
+    private static final String NORMAL_STYLE = 
+    "-fx-background-color: #2A2F3A; " +
+    "-fx-border-color: #3A4050; " +
+    "-fx-border-width: 1px; " +
+    "-fx-border-radius: 8px; " +
+    "-fx-background-radius: 8px; " +
+    "-fx-cursor: hand;";
+
+    private static final String CURRENT_TRACK_STYLE = 
+    "-fx-background-color: #3E3A57; " +
+    "-fx-border-color: #af7affff; " +
+    "-fx-border-width: 2px; " +
+    "-fx-border-radius: 8px; " +
+    "-fx-background-radius: 8px; " +
+    "-fx-cursor: hand;";
+
+    private static final String HOVER_STYLE = 
+    "-fx-background-color: #323848; " +
+    "-fx-border-color: #4A5063; " +
+    "-fx-border-width: 1px; " +
+    "-fx-border-radius: 8px; " +
+    "-fx-background-radius: 8px; " +
+    "-fx-cursor: hand;";
 }
