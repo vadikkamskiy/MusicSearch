@@ -31,38 +31,24 @@ public class MainWindow {
         
         ScrollPane scrollPane = new ScrollPane(mediaLayout);
         scrollPane.setFitToWidth(true);
-
-        String scrollBarStyle =
-            ".scroll-bar .thumb {" +
-            "    -fx-background-color: #3A4050;" +
-            "    -fx-background-radius: 4;" +
-            "}" +
-            ".scroll-bar .thumb:hover {" +
-            "    -fx-background-color: #505870;" +
-            "}" +
-            ".scroll-bar .track {" +
-            "    -fx-background-color: transparent;" +
-            "}";
+            
         scrollPane.getStylesheets().add(
-            "data:text/css," + scrollBarStyle.replaceAll("\\s+", " ")
+            "data:text/css," + scrollBarStyle().replaceAll("\\s+", " ")
         );
         
         this.searchEngine = new SearchEngine(mediaLayout);
         SearchWidget searchWidget = new SearchWidget(searchEngine);
         scrollPane.setFitToWidth(true);
-        scrollPane.setStyle(
-            "-fx-background: #1E2330;" +
-            "-fx-background-color: #1E2330;"
-        );
+        scrollPane.setStyle(scrollPaneStyle());
 
         scrollPane.viewportBoundsProperty().addListener((obs, oldVal, newVal) -> {
             Node viewport = scrollPane.lookup(".viewport");
             if (viewport != null) {
-                viewport.setStyle("-fx-background-color: #1E2330;");
+                viewport.setStyle(backgroundStyle());
             }
         });
 
-        mediaLayout.setStyle("-fx-background-color: #1E2330;");
+        mediaLayout.setStyle(backgroundStyle());
         mediaLayout.setAlignment(Pos.CENTER);
 
 
@@ -103,5 +89,26 @@ public class MainWindow {
 
     public Scene getScene() {
         return scene;
+    }
+
+    private final String scrollBarStyle (){
+        return ".scroll-bar .thumb {" +
+            "    -fx-background-color: #3A4050;" +
+            "    -fx-background-radius: 4;" +
+            "}" +
+            ".scroll-bar .thumb:hover {" +
+            "    -fx-background-color: #505870;" +
+            "}" +
+            ".scroll-bar .track {" +
+            "    -fx-background-color: transparent;" +
+            "}";
+    }
+
+    private final String scrollPaneStyle() {
+        return "-fx-background: #1E2330;" +
+            "-fx-background-color: #1E2330;";
+    }
+    private final String backgroundStyle() {
+        return "-fx-background-color: #1E2330;";
     }
 }
