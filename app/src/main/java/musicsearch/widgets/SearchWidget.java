@@ -52,9 +52,6 @@ public class SearchWidget {
             "-fx-background-color: #323848; " +
             "-fx-text-fill: #D6D6E3;"
         );
-        homeButton.setOnAction(event -> {
-            this.searchEngine.goHome();
-        });
     }  
     public HBox getWidget() {
         return layout;

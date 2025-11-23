@@ -41,7 +41,10 @@ public class SearchEngine {
     private GridPane mediaLayout;
     private PlaybackListener playbackListener;
     private final ExecutorService executor = Executors.newFixedThreadPool(3);
-    private static final Dotenv dotenv = Dotenv.load(); 
+    private static final Dotenv dotenv = Dotenv.load();
+    public static int searchPage = 1;
+    public static int allPage;
+    public static String currentQuery = null;
     
     public SearchEngine(GridPane mediaLayout) {
         this.mediaLayout = mediaLayout;
@@ -59,6 +62,7 @@ public class SearchEngine {
     }
 
     public void search(String query) {
+        currentQuery = query;
         results.clear();
         executor.submit(() -> {
             try {
@@ -72,6 +76,8 @@ public class SearchEngine {
                         .get();
 
                 Elements tracks = doc.select("li.tracks__item.track.mustoggler");
+                Elements pages = doc.select(".pagination__item");
+                allPage = pages.size();
                 List<MediaModel> newModels = new ArrayList<>();
 
                 for (Element track : tracks) {
@@ -109,7 +115,6 @@ public class SearchEngine {
 
     private void updateMediaLayout() {
         mediaLayout.getChildren().clear();
-
         int columnsCount = 5;
         for (int i = 0; i < results.size(); i++) {
             MediaModel model = results.get(i);
@@ -132,6 +137,7 @@ public class SearchEngine {
         this.currentTrackListener = listener;
     }
     public void goHome() {
+        currentQuery = null;
         results.clear();
         File homeDir = new File(System.getProperty("user.home"), "Music");
         File[] files = homeDir.listFiles((dir, name) -> name.endsWith(".mp3") || name.endsWith(".flac"));
@@ -152,6 +158,56 @@ public class SearchEngine {
                 }
             }
             results.setAll(homeModels);
+        }
+    }
+
+    public void loadMoreResults() {
+        if(searchPage<allPage && !currentQuery.isEmpty()){
+            executor.submit(() -> {
+                try {
+                    String searchUrl = "https://" +
+                        dotenv.get("URL_SOURCE") +
+                        "/search/start/" + 48 * searchPage + "?q=" + currentQuery;
+                    Document doc = Jsoup.connect(searchUrl)
+                            .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                            .timeout(5000)
+                            .maxBodySize(0) 
+                            .get();
+                    System.out.println(searchUrl);
+                    Elements tracks = doc.select("li.tracks__item.track.mustoggler");
+                    List<MediaModel> newModels = new ArrayList<>();
+
+                    for (Element track : tracks) {
+                        String musmeta = track.attr("data-musmeta");
+                        if (musmeta == null || musmeta.isEmpty()) continue;
+
+                        JsonObject obj = JsonParser.parseString(musmeta).getAsJsonObject();
+                        String artist = obj.get("artist").getAsString();
+                        String title = obj.get("title").getAsString();
+                        String imageUrl = obj.get("img").getAsString();
+                        String downloadUrl = obj.get("url").getAsString();
+                        String time = track.selectFirst("div.track__fulltime") != null
+                                ? track.selectFirst("div.track__fulltime").text()
+                                : "Unknown";
+                        boolean isDownloaded = false;
+                        if(LocalFiles.stream().anyMatch(m -> m.getTitle().equals(artist + " - " + title))) {
+                            isDownloaded = true;
+                        }
+                        MediaModel model = new MediaModel(artist + " - " + title, time, downloadUrl, imageUrl, isDownloaded);
+                        newModels.add(model);
+                    }
+
+                    Platform.runLater(() -> {
+                        results.addAll(newModels);
+                    });
+                    tracks.clear();
+                    doc.clearAttributes();
+                    searchPage++;
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
         }
     }
 }

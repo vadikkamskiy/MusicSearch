@@ -32,6 +32,8 @@ public class MainWindow {
         ScrollPane scrollPane = new ScrollPane(mediaLayout);
         scrollPane.setFitToWidth(true);
 
+        setupScrollListener(scrollPane);
+
         String scrollBarStyle =
             ".scroll-bar .thumb {" +
             "    -fx-background-color: #3A4050;" +
@@ -103,5 +105,13 @@ public class MainWindow {
 
     public Scene getScene() {
         return scene;
+    }
+
+    private void setupScrollListener(ScrollPane scrollPane) {
+        scrollPane.vvalueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal.doubleValue() == scrollPane.getVmax()) {
+                searchEngine.loadMoreResults();
+            }
+        });
     }
 }
