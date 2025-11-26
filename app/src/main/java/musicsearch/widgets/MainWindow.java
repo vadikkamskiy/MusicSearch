@@ -51,7 +51,6 @@ public class MainWindow {
             ".scroll-bar .track {" +
             "    -fx-background-color: transparent;" +
             "}";
-            
         scrollPane.getStylesheets().add(
             "data:text/css," + scrollBarStyle().replaceAll("\\s+", " ")
         );
@@ -128,6 +127,7 @@ public class MainWindow {
         EventBus.subscribe(TrackDownloadEvent.class, event -> {
             fileEngine.downloadMedia(event.track);
         });
+    }
     private final String scrollBarStyle (){
         return ".scroll-bar .thumb {" +
             "    -fx-background-color: #3A4050;" +
