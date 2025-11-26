@@ -19,6 +19,8 @@ import musicsearch.models.MediaModel;
 import musicsearch.models.PlaybackListener;
 import musicsearch.models.CurrentTrackListener;
 import musicsearch.models.DataUpdateListener;
+import musicsearch.service.EventBus;
+import musicsearch.service.Events.*;
 import musicsearch.service.MP3CoverExtractor;
 
 public class MediaWidget extends VBox implements CurrentTrackListener {
@@ -347,7 +349,7 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
             
             findArtist.setOnAction(e -> {
                 String artist = mediaModel.getTitle().split("-")[0].trim();
-                System.out.println("Find artist: " + artist);
+                EventBus.publish(new ArtistSearchEvent(artist));
             });
         } else {
             MenuItem downloadItem = new MenuItem("Download");
@@ -359,12 +361,13 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
             contextMenu.getItems().addAll(playItem, downloadItem, findArtist);
             
             downloadItem.setOnAction(e -> {
-                System.out.println("Download: " + mediaModel.getTitle());
+                EventBus.publish(new TrackDownloadEvent(mediaModel));
             });
             
             findArtist.setOnAction(e -> {
                 String artist = mediaModel.getTitle().split("-")[0].trim();
-                System.out.println("Find artist: " + artist);
+                System.out.println("DEBUG: Publishing ArtistSearchEvent for: " + artist);
+                EventBus.publish(new ArtistSearchEvent(artist));
             });
         }
         

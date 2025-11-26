@@ -8,7 +8,11 @@ import javafx.scene.layout.GridPane;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import musicsearch.service.EventBus;
 import musicsearch.service.SearchEngine;
+import musicsearch.service.Events.ArtistSearchEvent;
+import musicsearch.service.Events.TrackDownloadEvent;
+import musicsearch.service.FileEngine;
 import musicsearch.models.CurrentTrackListener;
 import musicsearch.models.MediaModel;
 
@@ -19,6 +23,8 @@ public class MainWindow {
     private BorderPane root;
     private AudioPlayer audioPlayer;
     private SearchEngine searchEngine;
+    private static FileEngine fileEngine = new FileEngine();
+
     
 
     public MainWindow() {
@@ -51,6 +57,7 @@ public class MainWindow {
         
         this.searchEngine = new SearchEngine(mediaLayout);
         SearchWidget searchWidget = new SearchWidget(searchEngine);
+        setupGlobalEventListeners();
         scrollPane.setFitToWidth(true);
         scrollPane.setStyle(
             "-fx-background: #1E2330;" +
@@ -112,6 +119,16 @@ public class MainWindow {
             if (newVal.doubleValue() == scrollPane.getVmax()) {
                 searchEngine.loadMoreResults();
             }
+        });
+    }
+
+    private void setupGlobalEventListeners() {
+        EventBus.subscribe(ArtistSearchEvent.class, event -> {
+            searchEngine.search(event.artist);
+        });
+        
+        EventBus.subscribe(TrackDownloadEvent.class, event -> {
+            fileEngine.downloadMedia(event.track);
         });
     }
 }

@@ -31,6 +31,7 @@ import musicsearch.models.CurrentTrackListener;
 import musicsearch.models.DataUpdateListener;
 import musicsearch.models.MediaModel;
 import musicsearch.models.PlaybackListener;
+import musicsearch.service.Events.ArtistSearchEvent;
 import musicsearch.widgets.MediaWidget;
 
 public class SearchEngine {
@@ -219,5 +220,11 @@ public class SearchEngine {
 
     public void onTrackDeleted(MediaModel media) {
         goHome();
+    }
+
+    private void searchEventListener() {
+        EventBus.subscribe(ArtistSearchEvent.class, event -> {
+            search(event.artist);
+        });
     }
 }
