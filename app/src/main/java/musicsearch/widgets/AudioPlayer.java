@@ -57,14 +57,14 @@ public class AudioPlayer extends HBox {
     private void initializeUI() {
         currentTrack = new Label("No track playing");
         currentTrack.setPrefWidth(300);
-        currentTrack.setStyle("-fx-text-fill: #D6D6E3;");
+        currentTrack.setStyle(textStyle());
         
         progressSlider = new Slider(0, 100, 0);
         progressSlider.setPrefWidth(300);
         
         timeLabel = new Label("00:00 / 00:00");
         timeLabel.setPrefWidth(100);
-        timeLabel.setStyle("-fx-text-fill: #D6D6E3;");
+        timeLabel.setStyle(textStyle());
         
         playButton = new Button("▶");
         pauseButton = new Button("⏸");
@@ -74,13 +74,11 @@ public class AudioPlayer extends HBox {
         volumeSlider = new Slider(0, 100, 80);
         volumeSlider.setPrefWidth(100);
 
-        String buttonStyle = "-fx-background-color: #2A2F3A;" +
-            "-fx-text-fill: #D6D6E3;" +
-            "-fx-background-radius: 6;";
-        playButton.setStyle(buttonStyle);
-        pauseButton.setStyle(buttonStyle);
-        stopButton.setStyle(buttonStyle);
-        downloadButton.setStyle(buttonStyle);
+        
+        playButton.setStyle(buttonStyle());
+        pauseButton.setStyle(buttonStyle());
+        stopButton.setStyle(buttonStyle());
+        downloadButton.setStyle(buttonStyle());
         
         this.getChildren().addAll(
             currentTrack, progressSlider, timeLabel, 
@@ -89,13 +87,7 @@ public class AudioPlayer extends HBox {
         this.setSpacing(10);
         this.setAlignment(Pos.CENTER_LEFT);
         this.setPadding(new Insets(10));
-        this.setStyle(
-            "-fx-background-color: #232835;" +
-            "-fx-border-color: #2F3544;" +
-            "-fx-border-width: 1px 0 0 0;" + 
-            "-fx-padding: 10;" +
-            "-fx-background-radius: 0;"
-        );
+        this.setStyle(playerStyle());
         progressSlider.setStyle(
             "-fx-control-inner-background: #3A4050;" +
             "-fx-accent: #7AB8FF;" + 
@@ -349,5 +341,23 @@ public class AudioPlayer extends HBox {
         for (CurrentTrackListener listener : currentTrackListeners) {
             listener.onCurrentTrackChanged(track);
         }
+    }
+
+    private final String buttonStyle () {
+        return "-fx-background-color: #2A2F3A;" +
+        "-fx-text-fill: #D6D6E3;" +
+        "-fx-background-radius: 6;";
+    }
+
+    private final String textStyle(){
+        return "-fx-text-fill: #D6D6E3;";
+    }
+
+    private final String playerStyle(){
+        return "-fx-background-color: #232835;" +
+            "-fx-border-color: #2F3544;" +
+            "-fx-border-width: 1px 0 0 0;" + 
+            "-fx-padding: 10;" +
+            "-fx-background-radius: 0;";
     }
 }
