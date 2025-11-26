@@ -54,6 +54,7 @@ public class MainWindow {
         scrollPane.getStylesheets().add(
             "data:text/css," + scrollBarStyle().replaceAll("\\s+", " ")
         );
+        scrollPane.setStyle(scrollBarStyle);
         
         this.searchEngine = new SearchEngine(mediaLayout);
         SearchWidget searchWidget = new SearchWidget(searchEngine);
