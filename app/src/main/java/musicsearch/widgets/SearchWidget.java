@@ -48,9 +48,6 @@ public class SearchWidget {
             background() +
             "-fx-text-fill: #D6D6E3;"
         );
-        homeButton.setOnAction(event -> {
-            this.searchEngine.goHome();
-        });
     }  
     public HBox getWidget() {
         return layout;

@@ -19,6 +19,7 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 import musicsearch.models.MediaModel;
+import musicsearch.service.Events.TrackDownloadEvent;
 
 public class FileEngine {
     private Window parentWindow;
@@ -174,5 +175,15 @@ public class FileEngine {
     
     private String cleanFileName(String fileName) {
         return fileName.replaceAll("[\\\\/:*?\"<>|]", "_");
+    }
+
+    public void update(){
+        
+    }
+
+    private void searchEventListener() {
+        EventBus.subscribe(TrackDownloadEvent.class, event -> {
+            downloadMedia(event.track);
+        });
     }
 }

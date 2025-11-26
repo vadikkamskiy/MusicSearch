@@ -6,7 +6,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javafx.application.Platform;
 import javafx.geometry.Insets;
+import javafx.scene.chart.PieChart.Data;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
@@ -15,6 +18,9 @@ import javafx.concurrent.Task;
 import musicsearch.models.MediaModel;
 import musicsearch.models.PlaybackListener;
 import musicsearch.models.CurrentTrackListener;
+import musicsearch.models.DataUpdateListener;
+import musicsearch.service.EventBus;
+import musicsearch.service.Events.*;
 import musicsearch.service.MP3CoverExtractor;
 
 public class MediaWidget extends VBox implements CurrentTrackListener {
@@ -25,9 +31,21 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
     private boolean imageLoaded = false;
     private boolean isCurrentTrack = false;
 
-    public MediaWidget(MediaModel mediaModel, PlaybackListener playbackListener) {
+    private static final String CONTEXT_MENU_STYLE = 
+    "-fx-background-color: #2A2F3A; " +
+    "-fx-text-fill: #D6D6E3; " +
+    "-fx-font-size: 14px; " +
+    "-fx-border-color: #3A4050; " +
+    "-fx-border-width: 1px; " +
+    "-fx-border-radius: 6px; " +
+    "-fx-background-radius: 6px;";
+
+    public MediaWidget(MediaModel mediaModel, PlaybackListener playbackListener,
+                          DataUpdateListener dataUpdateListener){
         this.mediaModel = mediaModel;
         this.playbackListener = playbackListener;
+        this.isDownloaded = mediaModel.isDownloaded();
+        this.dataUpdateListener = dataUpdateListener;
         setupUI();
         setupEvents();
         loadImageLazily();
@@ -77,6 +95,11 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
         this.setOnMouseClicked(event -> {
             if (event.getButton() == MouseButton.PRIMARY && playbackListener != null) {
                 playbackListener.onTrackSelected(mediaModel);
+            } else if (event.getButton() == MouseButton.SECONDARY) {
+                ContextMenu menu = getContextMenu();
+                if (menu != null) {
+                    menu.show(this, event.getScreenX(), event.getScreenY());
+                }
             }
         });
         

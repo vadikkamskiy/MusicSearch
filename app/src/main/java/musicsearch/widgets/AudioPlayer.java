@@ -71,7 +71,7 @@ public class AudioPlayer extends HBox {
         stopButton = new Button("⏹");
         downloadButton = new Button("⬇");
         
-        volumeSlider = new Slider(0, 100, 50);
+        volumeSlider = new Slider(0, 100, 80);
         volumeSlider.setPrefWidth(100);
 
         
@@ -90,7 +90,9 @@ public class AudioPlayer extends HBox {
         this.setStyle(playerStyle());
         progressSlider.setStyle(
             "-fx-control-inner-background: #3A4050;" +
-            "-fx-accent: #7AB8FF;"
+            "-fx-accent: #7AB8FF;" + 
+            "-fx-background-radius: 4;" +
+            "-fx-padding: 0 5 0 5;"
         );
         updateUI();
     }
