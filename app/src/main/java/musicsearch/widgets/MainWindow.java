@@ -38,6 +38,9 @@ public class MainWindow {
         ScrollPane scrollPane = new ScrollPane(mediaLayout);
         scrollPane.setFitToWidth(true);
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> bbf1b540cd63d626bc5f240baf26bbef2599221b
 
         setupScrollListener(scrollPane);
 
@@ -52,9 +55,13 @@ public class MainWindow {
             ".scroll-bar .track {" +
             "    -fx-background-color: transparent;" +
             "}";
+<<<<<<< HEAD
 =======
             
 >>>>>>> 2e69c12254fff21ca4eb9347186b8e43e2d536a4
+=======
+            
+>>>>>>> bbf1b540cd63d626bc5f240baf26bbef2599221b
         scrollPane.getStylesheets().add(
             "data:text/css," + scrollBarStyle().replaceAll("\\s+", " ")
         );
@@ -116,6 +123,9 @@ public class MainWindow {
     }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> bbf1b540cd63d626bc5f240baf26bbef2599221b
     private void setupScrollListener(ScrollPane scrollPane) {
         scrollPane.vvalueProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal.doubleValue() == scrollPane.getVmax()) {
@@ -132,7 +142,10 @@ public class MainWindow {
         EventBus.subscribe(TrackDownloadEvent.class, event -> {
             fileEngine.downloadMedia(event.track);
         });
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> bbf1b540cd63d626bc5f240baf26bbef2599221b
     private final String scrollBarStyle (){
         return ".scroll-bar .thumb {" +
             "    -fx-background-color: #3A4050;" +
@@ -152,6 +165,9 @@ public class MainWindow {
     }
     private final String backgroundStyle() {
         return "-fx-background-color: #1E2330;";
+<<<<<<< HEAD
 >>>>>>> 2e69c12254fff21ca4eb9347186b8e43e2d536a4
+=======
+>>>>>>> bbf1b540cd63d626bc5f240baf26bbef2599221b
     }
 }

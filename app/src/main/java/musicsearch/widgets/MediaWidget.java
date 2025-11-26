@@ -31,6 +31,7 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
     private boolean imageLoaded = false;
     private boolean isCurrentTrack = false;
 <<<<<<< HEAD
+<<<<<<< HEAD
     private boolean isDownloaded;
     private ContextMenu contextMenu;
     private DataUpdateListener dataUpdateListener;
@@ -59,6 +60,8 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
     "-fx-cursor: hand;";
 =======
 >>>>>>> 2e69c12254fff21ca4eb9347186b8e43e2d536a4
+=======
+>>>>>>> bbf1b540cd63d626bc5f240baf26bbef2599221b
 
     private static final String CONTEXT_MENU_STYLE = 
     "-fx-background-color: #2A2F3A; " +
@@ -300,6 +303,7 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
     }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     private ContextMenu getContextMenu() {
         contextMenu = new ContextMenu();
         contextMenu.setStyle(CONTEXT_MENU_STYLE);
@@ -378,6 +382,8 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
         return contextMenu;
     }
 =======
+=======
+>>>>>>> bbf1b540cd63d626bc5f240baf26bbef2599221b
     private static final String NORMAL_STYLE = 
     "-fx-background-color: #2A2F3A; " +
     "-fx-border-color: #3A4050; " +
@@ -401,5 +407,8 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
     "-fx-border-radius: 8px; " +
     "-fx-background-radius: 8px; " +
     "-fx-cursor: hand;";
+<<<<<<< HEAD
 >>>>>>> 2e69c12254fff21ca4eb9347186b8e43e2d536a4
+=======
+>>>>>>> bbf1b540cd63d626bc5f240baf26bbef2599221b
 }
