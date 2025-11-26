@@ -30,6 +30,7 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
     private ImageView imageView;
     private boolean imageLoaded = false;
     private boolean isCurrentTrack = false;
+<<<<<<< HEAD
     private boolean isDownloaded;
     private ContextMenu contextMenu;
     private DataUpdateListener dataUpdateListener;
@@ -56,6 +57,8 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
     "-fx-border-radius: 8px; " +
     "-fx-background-radius: 8px; " +
     "-fx-cursor: hand;";
+=======
+>>>>>>> 2e69c12254fff21ca4eb9347186b8e43e2d536a4
 
     private static final String CONTEXT_MENU_STYLE = 
     "-fx-background-color: #2A2F3A; " +
@@ -296,6 +299,7 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
         MP3CoverExtractor.cleanupOldCoverFiles();
     }
 
+<<<<<<< HEAD
     private ContextMenu getContextMenu() {
         contextMenu = new ContextMenu();
         contextMenu.setStyle(CONTEXT_MENU_STYLE);
@@ -373,4 +377,29 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
         
         return contextMenu;
     }
+=======
+    private static final String NORMAL_STYLE = 
+    "-fx-background-color: #2A2F3A; " +
+    "-fx-border-color: #3A4050; " +
+    "-fx-border-width: 1px; " +
+    "-fx-border-radius: 8px; " +
+    "-fx-background-radius: 8px; " +
+    "-fx-cursor: hand;";
+
+    private static final String CURRENT_TRACK_STYLE = 
+    "-fx-background-color: #3E3A57; " +
+    "-fx-border-color: #af7affff; " +
+    "-fx-border-width: 2px; " +
+    "-fx-border-radius: 8px; " +
+    "-fx-background-radius: 8px; " +
+    "-fx-cursor: hand;";
+
+    private static final String HOVER_STYLE = 
+    "-fx-background-color: #323848; " +
+    "-fx-border-color: #4A5063; " +
+    "-fx-border-width: 1px; " +
+    "-fx-border-radius: 8px; " +
+    "-fx-background-radius: 8px; " +
+    "-fx-cursor: hand;";
+>>>>>>> 2e69c12254fff21ca4eb9347186b8e43e2d536a4
 }
