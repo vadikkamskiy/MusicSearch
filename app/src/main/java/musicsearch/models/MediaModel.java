@@ -21,4 +21,8 @@ public class MediaModel {
     public String toString(){
         return title + " | " + time;
     }
+
+    public void setDownloaded(boolean downloaded) {
+        isDownloaded = downloaded;
+    }
 }

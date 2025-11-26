@@ -6,7 +6,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javafx.application.Platform;
 import javafx.geometry.Insets;
+import javafx.scene.chart.PieChart.Data;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
@@ -15,6 +18,7 @@ import javafx.concurrent.Task;
 import musicsearch.models.MediaModel;
 import musicsearch.models.PlaybackListener;
 import musicsearch.models.CurrentTrackListener;
+import musicsearch.models.DataUpdateListener;
 import musicsearch.service.MP3CoverExtractor;
 
 public class MediaWidget extends VBox implements CurrentTrackListener {
@@ -24,7 +28,9 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
     private ImageView imageView;
     private boolean imageLoaded = false;
     private boolean isCurrentTrack = false;
-        
+    private boolean isDownloaded;
+    private ContextMenu contextMenu;
+    private DataUpdateListener dataUpdateListener;
     private static final String NORMAL_STYLE = 
     "-fx-background-color: #2A2F3A; " +
     "-fx-border-color: #3A4050; " +
@@ -49,9 +55,21 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
     "-fx-background-radius: 8px; " +
     "-fx-cursor: hand;";
 
-    public MediaWidget(MediaModel mediaModel, PlaybackListener playbackListener) {
+    private static final String CONTEXT_MENU_STYLE = 
+    "-fx-background-color: #2A2F3A; " +
+    "-fx-text-fill: #D6D6E3; " +
+    "-fx-font-size: 14px; " +
+    "-fx-border-color: #3A4050; " +
+    "-fx-border-width: 1px; " +
+    "-fx-border-radius: 6px; " +
+    "-fx-background-radius: 6px;";
+
+    public MediaWidget(MediaModel mediaModel, PlaybackListener playbackListener,
+                          DataUpdateListener dataUpdateListener){
         this.mediaModel = mediaModel;
         this.playbackListener = playbackListener;
+        this.isDownloaded = mediaModel.isDownloaded();
+        this.dataUpdateListener = dataUpdateListener;
         setupUI();
         setupEvents();
         loadImageLazily();
@@ -101,6 +119,11 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
         this.setOnMouseClicked(event -> {
             if (event.getButton() == MouseButton.PRIMARY && playbackListener != null) {
                 playbackListener.onTrackSelected(mediaModel);
+            } else if (event.getButton() == MouseButton.SECONDARY) {
+                ContextMenu menu = getContextMenu();
+                if (menu != null) {
+                    menu.show(this, event.getScreenX(), event.getScreenY());
+                }
             }
         });
         
@@ -269,5 +292,82 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
     public static void clearCoverCache() {
         coverCache.clear();
         MP3CoverExtractor.cleanupOldCoverFiles();
+    }
+
+    private ContextMenu getContextMenu() {
+        contextMenu = new ContextMenu();
+        contextMenu.setStyle(CONTEXT_MENU_STYLE);
+        
+        MenuItem playItem = new MenuItem("Play");
+        playItem.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
+        
+        playItem.setOnAction(e -> {
+            if (playbackListener != null) {
+                playbackListener.onTrackSelected(mediaModel);
+            }
+        });
+
+        if (isDownloaded) {
+            MenuItem deleteItem = new MenuItem("Delete");
+            deleteItem.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
+            
+            MenuItem findArtist = new MenuItem("Find Artist");
+            findArtist.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
+            
+            contextMenu.getItems().addAll(playItem, deleteItem, findArtist);
+            
+            deleteItem.setOnAction(e -> {
+                String filePath = mediaModel.getUrl();
+                if (filePath != null) {
+                    if (filePath.startsWith("file:\\")) {
+                        filePath = filePath.substring(6);
+                    }
+                    else if (filePath.startsWith("file:")) {
+                        filePath = filePath.substring(5);
+                    }
+                    
+                    try {
+                        filePath = java.net.URLDecoder.decode(filePath, "UTF-8");
+                    } catch (Exception ex) {
+
+                    }
+                    
+                    File file = new File(filePath);
+                    if (file.delete()) {
+                        System.out.println("Deleted file: " + file.getAbsolutePath());
+                        isDownloaded = false;
+                        mediaModel.setDownloaded(false);
+                        
+                        if (dataUpdateListener != null) {
+                            dataUpdateListener.onDataChanged();
+                        }
+                    }
+                }
+            });
+            
+            findArtist.setOnAction(e -> {
+                String artist = mediaModel.getTitle().split("-")[0].trim();
+                System.out.println("Find artist: " + artist);
+            });
+        } else {
+            MenuItem downloadItem = new MenuItem("Download");
+            downloadItem.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
+            
+            MenuItem findArtist = new MenuItem("Find Artist");
+            findArtist.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
+            
+            contextMenu.getItems().addAll(playItem, downloadItem, findArtist);
+            
+            downloadItem.setOnAction(e -> {
+                System.out.println("Download: " + mediaModel.getTitle());
+            });
+            
+            findArtist.setOnAction(e -> {
+                String artist = mediaModel.getTitle().split("-")[0].trim();
+                System.out.println("Find artist: " + artist);
+            });
+        }
+        
+        return contextMenu;
     }
 }
