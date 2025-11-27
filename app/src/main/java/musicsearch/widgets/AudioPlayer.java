@@ -8,6 +8,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
 import javafx.scene.control.Slider;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
@@ -29,8 +30,16 @@ public class AudioPlayer extends HBox {
     private Label currentTrack;
     private Slider progressSlider;
     private Label timeLabel;
-    private Button playButton, pauseButton, stopButton, downloadButton;
+    private Button playButton, pauseButton, stopButton, downloadButton,
+        prevButton, nextButton;
     private Slider volumeSlider;
+    private List<MediaModel> playlist = new ArrayList<>();
+    private int currentIndex = -1;
+    private ListView<MediaWidget> playlistView;
+
+    private enum RepeatMode { NONE, ONE, ALL }
+    private RepeatMode repeatMode = RepeatMode.NONE;
+    private boolean shuffle = false;
     
     private FileEngine fileEngine;
 
@@ -53,6 +62,59 @@ public class AudioPlayer extends HBox {
             });
         }
     }
+    
+
+    public void setPlaylist(List<MediaModel> list) {
+        playlist.clear();
+        if (list != null) playlist.addAll(list);
+        currentIndex = playlist.isEmpty() ? -1 : 0;
+    }
+
+    public void setPlaylistAndPlay(List<MediaModel> list, int startIndex) {
+        setPlaylist(list);
+        if (startIndex >= 0 && startIndex < playlist.size()) {
+            playAt(startIndex);
+        } else if (!playlist.isEmpty()) {
+            playAt(0);
+        }
+    }
+
+    public void playAt(int index) {
+        if (index < 0 || index >= playlist.size()) return;
+        currentIndex = index;
+        playTrack(playlist.get(currentIndex));
+    }
+
+    public void playNext() {
+        if (playlist.isEmpty()) return;
+        currentIndex++;
+        if (currentIndex >= playlist.size()) {
+            currentIndex = -1;
+            stop();
+            return;
+        }
+        playAt(currentIndex);
+    }
+
+    public void playPrevious() {
+        if (playlist.isEmpty()) return;
+        if (mediaPlayer != null && mediaPlayer.getCurrentTime().toMillis() > 3000) {
+            mediaPlayer.seek(Duration.ZERO);
+            return;
+        }
+        currentIndex--;
+        if (currentIndex < 0) {
+            currentIndex = 0;
+            mediaPlayer.seek(Duration.ZERO);
+            return;
+        }
+        playAt(currentIndex);
+    }
+
+
+    public void setShuffle(boolean on) { this.shuffle = on; }
+    public void setRepeatMode(RepeatMode mode) { this.repeatMode = mode; }
+
 
     private void initializeUI() {
         currentTrack = new Label("No track playing");
@@ -60,12 +122,14 @@ public class AudioPlayer extends HBox {
         currentTrack.setStyle(textStyle());
         
         progressSlider = new Slider(0, 100, 0);
-        progressSlider.setPrefWidth(300);
+        progressSlider.setPrefWidth(200);
         
         timeLabel = new Label("00:00 / 00:00");
         timeLabel.setPrefWidth(100);
         timeLabel.setStyle(textStyle());
         
+        prevButton = new Button("⏮");
+        nextButton = new Button("⏭");
         playButton = new Button("▶");
         pauseButton = new Button("⏸");
         stopButton = new Button("⏹");
@@ -79,11 +143,16 @@ public class AudioPlayer extends HBox {
         pauseButton.setStyle(buttonStyle());
         stopButton.setStyle(buttonStyle());
         downloadButton.setStyle(buttonStyle());
+        prevButton.setStyle(buttonStyle());
+        nextButton.setStyle(buttonStyle());
         
         this.getChildren().addAll(
-            currentTrack, progressSlider, timeLabel, 
+            currentTrack, progressSlider, timeLabel, prevButton, nextButton, 
             playButton, pauseButton, stopButton, downloadButton, volumeSlider
         );
+
+        playlistView = new ListView<>();
+        playlistView.setPrefWidth(250);
         this.setSpacing(10);
         this.setAlignment(Pos.CENTER_LEFT);
         this.setPadding(new Insets(10));
@@ -102,6 +171,15 @@ public class AudioPlayer extends HBox {
         pauseButton.setOnAction(e -> pause());
         stopButton.setOnAction(e -> stop());
         downloadButton.setOnAction(e -> downloadCurrentTrack());
+        playlistView.setOnMouseClicked(e -> {
+            if (e.getClickCount() == 2) {
+                int idx = playlistView.getSelectionModel().getSelectedIndex();
+                playAt(idx);
+            }
+        });
+
+        prevButton.setOnAction(e -> playPrevious());
+        nextButton.setOnAction(e -> playNext());
 
         volumeSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
             if (mediaPlayer != null) {
@@ -204,7 +282,7 @@ public class AudioPlayer extends HBox {
         mediaPlayer.setOnEndOfMedia(() -> {
             Platform.runLater(() -> {
                 isPlaying = false;
-                currentTrack.setText("Finished: " + currentModel.getTitle());
+                playNext();
                 updateUI();
             });
         });

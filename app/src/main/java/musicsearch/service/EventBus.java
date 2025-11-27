@@ -6,8 +6,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
-import musicsearch.models.MediaModel;
-
 public class EventBus {
     private static final Map<Class<?>, List<Consumer<?>>> listeners = new ConcurrentHashMap<>();
     
