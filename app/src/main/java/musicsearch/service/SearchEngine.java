@@ -227,4 +227,10 @@ public class SearchEngine {
             search(event.artist);
         });
     }
+
+
+
+    public List<MediaModel> getResults() {
+        return new ArrayList<>(results.get());
+    }
 }

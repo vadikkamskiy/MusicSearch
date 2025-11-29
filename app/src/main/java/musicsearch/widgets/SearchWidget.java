@@ -14,7 +14,6 @@ public class SearchWidget {
     private Button homeButton;
     private SearchEngine searchEngine;
     
-
     public SearchWidget(SearchEngine searchEngine){
         this.searchEngine = searchEngine;
         homeButton = new Button("Home");
