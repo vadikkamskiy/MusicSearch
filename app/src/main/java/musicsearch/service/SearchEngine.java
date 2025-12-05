@@ -36,8 +36,6 @@ import org.jsoup.nodes.TextNode;
 import org.jsoup.select.Elements;
 
 import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -64,6 +62,7 @@ public class SearchEngine {
     public static int searchPage = 1;
     public static int allPage;
     public static String currentQuery = "null";
+    public static final String lyricsUrl = dotenv.get("LYRICS_SOURCE");
     
     public SearchEngine(GridPane mediaLayout) {
         this.mediaLayout = mediaLayout;
@@ -96,7 +95,7 @@ public class SearchEngine {
             try {
                 String searchUrl = "https://" +
                     dotenv.get("URL_SOURCE") +
-                    "/search?q=" + query.replace(" ", "+");
+                    "/search?q=" + query;
                 Document doc = Jsoup.connect(searchUrl)
                         .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
                         .timeout(5000)
@@ -269,58 +268,72 @@ public class SearchEngine {
     }
 
     public Text findLyrics(String track) {
-        int maxRetries = 2;
+        if (track == null || track.trim().isEmpty()) return null;
+
+        String cleanedTrack = cleanTrackTitle(track);
+        System.out.println("Original: " + track);
+        System.out.println("Cleaned: " + cleanedTrack);
+
+        Text directResult = findLyricsDirect(cleanedTrack);
+        if (directResult != null) {
+            System.out.println("✓ Found via direct URL");
+            return directResult;
+        }
+
+        System.out.println("Direct approach failed, trying search...");
         
+        int maxRetries = 2;
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
             try {
-                System.out.println("=== LYRICS SEARCH ATTEMPT " + attempt + " ===");
-                System.out.println("Searching for: " + track);
-                
-                Text directResult = findLyricsDirect(track);
-                if (directResult != null) {
-                    return directResult;
-                }
-                
-                Text searchResult = findLyricsViaImprovedSearch(track);
-                if (searchResult != null) {
-                    return searchResult;
-                }
-                
+                System.out.println("=== SEARCH ATTEMPT " + attempt + " ===");
+                Text result = findLyricsViaImprovedSearch(cleanedTrack);
+                if (result != null) return result;
             } catch (Exception e) {
                 System.err.println("Attempt " + attempt + " failed: " + e.getMessage());
-                if (attempt < maxRetries) {
-                    try {
-                        Thread.sleep(3000);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                }
+            }
+
+            if (attempt < maxRetries) {
+                try { Thread.sleep(2000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
             }
         }
-        
-        System.out.println("All attempts failed to find lyrics");
+
+        System.out.println("All search attempts failed");
         return null;
+    }
+
+    private String cleanTrackTitle(String track) {
+        if (track == null) return "";
+        
+        String cleaned = track.replaceAll("\\([^)]*\\)", "");
+        
+        cleaned = cleaned.replaceAll("\\[[^]]*\\]", "");
+        
+        cleaned = cleaned.replaceAll("\\s+", " ").trim();
+        
+        cleaned = cleaned.replaceAll(" - - ", " - ").replaceAll("--", "-");
+        
+        return cleaned;
     }
 
     private Text findLyricsDirect(String track) {
         try {
             String[] directUrls = generateDirectUrls(track);
             
-            for (String directUrl : directUrls) {
-                System.out.println("Trying direct URL: " + directUrl);
+            for (String url : directUrls) {
+                System.out.println("Trying direct URL: " + url);
                 
                 try {
-                    Document lyricsDoc = Jsoup.connect(directUrl)
+                    Document lyricsDoc = Jsoup.connect(url)
                             .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                             .timeout(10000)
                             .ignoreHttpErrors(true)
                             .get();
-                    
-                    if (isValidLyricsPage(lyricsDoc)) {
+
+                    if (lyricsDoc.selectFirst("div[data-lyrics-container=true]") != null || 
+                        lyricsDoc.selectFirst("div.lyrics") != null) {
+                        
                         Text lyrics = extractLyrics(lyricsDoc);
                         if (lyrics != null && !lyrics.getText().trim().isEmpty()) {
-                            System.out.println("✓ Success via direct URL: " + directUrl);
                             return lyrics;
                         }
                     }
@@ -328,7 +341,7 @@ public class SearchEngine {
                     Thread.sleep(500);
                     
                 } catch (Exception e) {
-                    System.err.println("Direct URL failed: " + e.getMessage());
+                    System.err.println("Direct URL failed: " + url);
                 }
             }
         } catch (Exception e) {
@@ -346,49 +359,41 @@ public class SearchEngine {
                 .replace("'", "")
                 .replace(",", "")
                 .replace("&", "and")
-                .replace("--", "-")
-                .replace("(", "")
-                .replace(")", "");
+                .replace("--", "-");
         
         urls.add("https://genius.com/" + base + "-lyrics");
         
-        String simplified = base.replace("-the-", "-").replace("-a-", "-");
-        urls.add("https://genius.com/" + simplified + "-lyrics");
-        
         if (track.contains(" - ")) {
             String[] parts = track.split(" - ", 2);
-            String artist = parts[0].toLowerCase().replace(" ", "-").replace("'", "");
-            String song = parts[1].toLowerCase().replace(" ", "-").replace("'", "");
+            String artist = parts[0].toLowerCase()
+                    .replace(" ", "-")
+                    .replace("'", "")
+                    .replace(",", "");
+            String song = parts[1].toLowerCase()
+                    .replace(" ", "-")
+                    .replace("'", "")
+                    .replace(",", "");
+            
             urls.add("https://genius.com/" + artist + "-" + song + "-lyrics");
         }
         
         return urls.toArray(new String[0]);
     }
 
-    private boolean isValidLyricsPage(Document doc) {
-        if (doc == null) return false;
-        
-        String title = doc.title().toLowerCase();
-        
-        if (title.contains("not found") || title.contains("404") || 
-            title.contains("bedoes") || title.contains("polish")) {
-            return false;
-        }
-        
-        return doc.selectFirst("div[data-lyrics-container=true]") != null ||
-            doc.selectFirst("div.lyrics") != null;
-    }
-
     private Text findLyricsViaImprovedSearch(String track) {
         try {
-            String encodedTrack = URLEncoder.encode(track, StandardCharsets.UTF_8);
-            String searchUrl = "https://genius.com/search?q=" + encodedTrack;
+            String normalized = track == null ? "" : track.trim().replaceAll("\\s+", " ");
+            
+            String searchUrl = lyricsUrl + "/search?q=" + normalized;
             
             System.out.println("Search URL: " + searchUrl);
-            
+
             Document searchDoc = Jsoup.connect(searchUrl)
-                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                    .timeout(15000)
+                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
+                    .header("Accept-Language", "en-US,en;q=0.9")
+                    .referrer("https://www.google.com/")
+                    .timeout(30000)
                     .ignoreHttpErrors(true)
                     .get();
 
@@ -397,151 +402,206 @@ public class SearchEngine {
                 return null;
             }
 
-            Elements songCards = searchDoc.select("a.mini_card");
-            System.out.println("Found " + songCards.size() + " song cards");
-            
-            if (songCards.isEmpty()) {
-                System.out.println("No song cards found");
+            if (isBlockedPage(searchDoc)) {
+                System.out.println("Genius is blocking the request");
                 return null;
             }
 
-            List<SongCandidate> candidates = new ArrayList<>();
-            
-            for (Element card : songCards) {
-                SongCandidate candidate = extractSongInfoFromCard(card, track);
-                if (candidate != null) {
-                    candidates.add(candidate);
-                }
-            }
-            
-            candidates.sort((a, b) -> Integer.compare(b.relevanceScore, a.relevanceScore));
-            
-            System.out.println("Found " + candidates.size() + " candidate songs");
-            
-            int maxToTry = Math.min(3, candidates.size());
-            for (int i = 0; i < maxToTry; i++) {
-                SongCandidate candidate = candidates.get(i);
-                System.out.println("Trying candidate " + (i+1) + ": " + candidate.artist + " - " + candidate.title + 
-                                " (score: " + candidate.relevanceScore + ")");
-                
-                try {
-                    Thread.sleep(1000);
-                    
-                    Document lyricsDoc = Jsoup.connect(candidate.url)
-                            .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                            .timeout(15000)
-                            .ignoreHttpErrors(true)
-                            .get();
-                    
-                    Text lyrics = extractLyrics(lyricsDoc);
-                    if (lyrics != null && !lyrics.getText().trim().isEmpty()) {
-                        System.out.println("✓ Success with candidate: " + candidate.url);
-                        return lyrics;
-                    }
-                } catch (Exception e) {
-                    System.err.println("Failed to process candidate: " + e.getMessage());
-                }
-            }
-            
-        } catch (Exception e) {
-            System.err.println("Search approach failed: " + e.getMessage());
-        }
-        return null;
-    }
+            saveHtmlForDebug(searchDoc, "search_page");
 
-    private SongCandidate extractSongInfoFromCard(Element card, String originalTrack) {
-        try {
-            String url = card.attr("abs:href");
+            String lyricsPageUrl = findLyricsLinkEnhanced(searchDoc);
             
-            Element titleElement = card.selectFirst(".mini_card-title");
-            Element artistElement = card.selectFirst(".mini_card-subtitle");
-            
-            if (titleElement == null || artistElement == null) {
+            if (lyricsPageUrl == null) {
+                System.out.println("No lyrics link found after all strategies");
                 return null;
             }
-            
-            String cardTitle = titleElement.text().trim();
-            String cardArtist = artistElement.text().trim();
-            
-            int relevanceScore = calculateRelevance(originalTrack, cardArtist, cardTitle);
-            
-            return new SongCandidate(cardArtist, cardTitle, url, relevanceScore);
-            
+
+            System.out.println("Found lyrics page: " + lyricsPageUrl);
+
+            Document lyricsDoc = Jsoup.connect(lyricsPageUrl)
+                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
+                    .timeout(30000)
+                    .ignoreHttpErrors(true)
+                    .get();
+
+            saveHtmlForDebug(lyricsDoc, "lyrics_page");
+
+            return extractLyrics(lyricsDoc);
+
         } catch (Exception e) {
-            System.err.println("Error extracting song info: " + e.getMessage());
+            System.err.println("Error in findLyricsViaImprovedSearch: " + e.getMessage());
+            e.printStackTrace();
             return null;
         }
     }
 
-    private int calculateRelevance(String searchQuery, String foundArtist, String foundTitle) {
-        int score = 0;
+    private String findLyricsLinkEnhanced(Document searchDoc) {
+        System.out.println("=== ENHANCED LINK SEARCH ===");
         
-        String searchLower = searchQuery.toLowerCase();
-        String artistLower = foundArtist.toLowerCase();
-        String titleLower = foundTitle.toLowerCase();
+        System.out.println("Page title: " + searchDoc.title());
+        String bodyText = searchDoc.body().text();
+        System.out.println("Body text sample: " + bodyText.substring(0, Math.min(200, bodyText.length())));
+
+        String result = findMiniCardLink(searchDoc);
+        if (result != null) return result;
         
-        String searchArtist = "";
-        String searchTitle = searchQuery;
+        result = findTopResultLink(searchDoc);
+        if (result != null) return result;
         
-        if (searchQuery.contains(" - ")) {
-            String[] parts = searchQuery.split(" - ", 2);
-            searchArtist = parts[0].toLowerCase().trim();
-            searchTitle = parts[1].toLowerCase().trim();
+        result = findAnyLyricsLink(searchDoc);
+        if (result != null) return result;
+        
+        result = findSearchResultLink(searchDoc);
+        if (result != null) return result;
+        
+        System.out.println("No lyrics link found with any strategy");
+        return null;
+    }
+
+    private String findMiniCardLink(Document doc) {
+        System.out.println("Strategy 1: Looking for mini cards...");
+        
+        Elements miniCards = doc.select("a.mini_card");
+        System.out.println("Found " + miniCards.size() + " mini cards");
+        
+        for (int i = 0; i < miniCards.size(); i++) {
+            Element card = miniCards.get(i);
+            String href = card.attr("href");
+            String text = card.text();
+            
+            System.out.println("Mini card " + (i+1) + ": " + text + " -> " + href);
+            
+            if (href.contains("genius.com") && (href.contains("-lyrics") || href.matches(".*/[a-z0-9-]+-[a-z0-9-]+$"))) {
+                System.out.println("Using mini card: " + href);
+                return card.absUrl("href");
+            }
         }
         
-        if (!searchArtist.isEmpty()) {
-            if (artistLower.equals(searchArtist)) score += 50;
-            else if (artistLower.contains(searchArtist)) score += 30;
-            else if (searchArtist.contains(artistLower)) score += 20;
+        return null;
+    }
+
+    private String findTopResultLink(Document doc) {
+        System.out.println("Strategy 2: Looking for Top Result...");
+        
+        Element topLabel = doc.selectFirst("div:contains(Top Result)");
+        if (topLabel == null) {
+            topLabel = doc.selectFirst(":containsOwn(Top Result)");
         }
         
-        if (titleLower.equals(searchTitle)) score += 50;
-        else if (titleLower.contains(searchTitle)) score += 30;
-        else if (searchTitle.contains(titleLower)) score += 20;
+        if (topLabel != null) {
+            System.out.println("Found Top Result label");
+            
+            Element container = topLabel;
+            for (int i = 0; i < 5; i++) {
+                if (container == null) break;
+                
+                Element link = container.selectFirst("a[href*='genius.com']");
+                if (link != null) {
+                    String href = link.attr("href");
+                    if (href.contains("-lyrics") || href.matches(".*/[a-z0-9-]+-[a-z0-9-]+$")) {
+                        System.out.println("Found Top Result link: " + href);
+                        return link.absUrl("href");
+                    }
+                }
+                container = container.parent();
+            }
+        }
         
-        if (!searchArtist.isEmpty()) {
-            String[] artistWords = searchArtist.split("\\s+");
-            for (String word : artistWords) {
-                if (word.length() > 2 && artistLower.contains(word)) {
-                    score += 5;
+        System.out.println("No Top Result found");
+        return null;
+    }
+
+    private String findAnyLyricsLink(Document doc) {
+        System.out.println("Strategy 3: Looking for any lyrics links...");
+        
+        Elements geniusLinks = doc.select("a[href*='genius.com']");
+        System.out.println("Found " + geniusLinks.size() + " Genius links total");
+        
+        for (int i = 0; i < Math.min(10, geniusLinks.size()); i++) {
+            Element link = geniusLinks.get(i);
+            String href = link.attr("href");
+            String text = link.text();
+            
+            if (!href.contains("/albums/") && 
+                !href.contains("/artists/") && 
+                !href.contains("/users/") &&
+                (href.contains("-lyrics") || href.matches(".*/[a-z0-9-]+-[a-z0-9-]+$"))) {
+                
+                System.out.println("Found potential lyrics link: " + text + " -> " + href);
+                return link.absUrl("href");
+            }
+        }
+        
+        return null;
+    }
+
+    private String findSearchResultLink(Document doc) {
+        System.out.println("Strategy 4: Looking for search results...");
+        
+        Elements resultItems = doc.select("search-result-item, [class*='result'], [class*='search']");
+        System.out.println("Found " + resultItems.size() + " result items");
+        
+        for (Element item : resultItems) {
+            Element link = item.selectFirst("a[href*='genius.com']");
+            if (link != null) {
+                String href = link.attr("href");
+                if (href.contains("-lyrics") || href.matches(".*/[a-z0-9-]+-[a-z0-9-]+$")) {
+                    System.out.println("Found result item link: " + href);
+                    return link.absUrl("href");
                 }
             }
         }
         
-        String[] titleWords = searchTitle.split("\\s+");
-        for (String word : titleWords) {
-            if (word.length() > 2 && titleLower.contains(word)) {
-                score += 5;
-            }
+        return null;
+    }
+
+    private boolean isBlockedPage(Document doc) {
+        String title = doc.title().toLowerCase();
+        String bodyText = doc.body().text().toLowerCase();
+        
+        return title.contains("bot") || title.contains("blocked") || 
+            title.contains("access denied") || bodyText.contains("please enable javascript") ||
+            bodyText.contains("cloudflare") || bodyText.contains("captcha");
+    }
+
+    private void saveHtmlForDebug(Document doc, String filename) {
+        try {
+            String html = doc.html();
+            java.nio.file.Files.write(
+                java.nio.file.Paths.get(filename + ".html"), 
+                html.getBytes()
+            );
+            System.out.println("Saved " + filename + ".html for debugging");
+        } catch (Exception e) {
+            System.err.println("Could not save debug HTML: " + e.getMessage());
         }
-        
-        if (artistLower.contains("bedoes") || titleLower.contains("bedoes")) score -= 100;
-        if (artistLower.contains("polish") || titleLower.contains("polish")) score -= 100;
-        if (artistLower.contains("rap") || titleLower.contains("rap")) score -= 50;
-        
-        return Math.max(0, score);
     }
 
     private Text extractLyrics(Document lyricsDoc) {
         try {
-            Element lyricsContainer = lyricsDoc.selectFirst("div[data-lyrics-container=true]");
+            Elements lyricsContainers = lyricsDoc.select("div[data-lyrics-container=true]");
             
-            if (lyricsContainer != null) {
-                lyricsContainer.select("script, style, [class*='ad'], [class*='header']").remove();
-                
-                String lyricsText = lyricsContainer.text().trim();
-                
-                if (!lyricsText.isEmpty()) {
-                    return new Text(lyricsText);
-                }
+            if (lyricsContainers.isEmpty()) {
+                return null;
             }
+
+            StringBuilder allLyrics = new StringBuilder();
             
-            Element fallbackContainer = lyricsDoc.selectFirst("div.lyrics");
-            if (fallbackContainer != null) {
-                String lyricsText = fallbackContainer.text().trim();
-                if (!lyricsText.isEmpty()) {
-                    return new Text(lyricsText);
-                }
+            for (Element container : lyricsContainers) {
+                container.select("script, style, [class*='ad'], [class*='header'], [class*='Sidebar'], [class*='Footer']").remove();
+                
+                processLyricsContainer(container, allLyrics);
+                
+                allLyrics.append("\n\n");
+            }
+
+            String result = allLyrics.toString()
+                .replaceAll("\n{3,}", "\n\n")
+                .trim();
+            
+            if (!result.isEmpty()) {
+                return new Text(result);
             }
             
         } catch (Exception e) {
@@ -550,19 +610,31 @@ public class SearchEngine {
         return null;
     }
 
-    private static class SongCandidate {
-        String artist;
-        String title;
-        String url;
-        int relevanceScore;
-        
-        SongCandidate(String artist, String title, String url, int relevanceScore) {
-            this.artist = artist;
-            this.title = title;
-            this.url = url;
-            this.relevanceScore = relevanceScore;
+    private void processLyricsContainer(Element container, StringBuilder result) {
+        for (Node node : container.childNodes()) {
+            if (node instanceof TextNode) {
+                String text = ((TextNode) node).text().trim();
+                if (!text.isEmpty()) {
+                    result.append(text).append("\n");
+                }
+            } else if (node instanceof Element) {
+                Element element = (Element) node;
+                String tagName = element.tagName();
+                
+                if (tagName.equals("br")) {
+                    result.append("\n");
+                } else if (tagName.equals("a")) {
+                    String linkText = element.text().trim();
+                    if (!linkText.isEmpty()) {
+                        result.append(linkText).append("\n");
+                    }
+                } else {
+                    processLyricsContainer(element, result);
+                }
+            }
         }
-    }    
+    }
+
     private void showLyricsWindow(Text lyricsText, String title) {
         Stage lyricsStage = new Stage();
         lyricsStage.setTitle("Lyrics: " + title);
@@ -590,7 +662,7 @@ public class SearchEngine {
         
         VBox.setVgrow(textArea, Priority.ALWAYS);
         
-        Scene scene = new Scene(layout, 650, 800); // Увеличили размер окна
+        Scene scene = new Scene(layout, 650, 480);
         lyricsStage.setScene(scene);
         
         scene.setOnKeyPressed(event -> {
