@@ -1,4 +1,3 @@
-// Плагины
 plugins {
     id 'java'
     id 'application'
@@ -11,10 +10,9 @@ group = 'musicsearch'
 version = '1.0.0'
 mainClassName = 'musicsearch.App'
 
-// JavaFX-модули
 javafx {
     version = "21"
-    modules = [ 'javafx.controls', 'javafx.fxml', 'javafx.media' ]
+    modules = ['javafx.controls', 'javafx.fxml', 'javafx.media']
 }
 
 repositories {
@@ -47,361 +45,146 @@ tasks.named('test') {
     useJUnitPlatform()
 }
 
-// Создаем fat JAR
-shadowJar {
+// ------------------ jlink кастомного JRE ------------------
+def jmodsDir = file("C:/javafx-jmods-21")
+def customRuntimeDir = file("$buildDir/runtime")
+
+tasks.register('createRuntime', Exec) {
+    dependsOn 'classes'
+    group = 'build'
+    description = 'Создает кастомное JRE с JavaFX'
+
+    def modules = 'java.base,java.logging,java.desktop,javafx.controls,javafx.fxml,javafx.media'
+
+    commandLine = [
+        "${System.getProperty('java.home')}/bin/jlink",
+        '--module-path', "${jmodsDir};${System.getProperty('java.home')}/jmods",
+        '--add-modules', modules,
+        '--output', customRuntimeDir,
+        '--strip-debug',
+        '--compress', '2',
+        '--no-header-files',
+        '--no-man-pages'
+    ]
+}
+
+// ------------------ Fat JAR ------------------
+tasks.named('shadowJar') {
     archiveBaseName.set('MusicSearch')
     archiveClassifier.set('')
-    archiveVersion.set(version)
-    mergeServiceFiles()
-    
-    manifest {
-        attributes(
-            'Main-Class': mainClassName,
-            'Implementation-Version': version
-        )
-    }
+    archiveVersion.set('1.0.0')
 }
 
-// Копирование .env файла в ресурсы
-task copyEnv(type: Copy) {
-    from '.env'
-    into 'build/resources/main'
-}
+def icoPath = file('src/main/resources/icon.ico').absolutePath
+logger.lifecycle("Launching with icon: ${icoPath} exists=${file(icoPath).exists()}")
 
-processResources.dependsOn copyEnv
-
-// Конфигурация Launch4j - ИСПРАВЛЕННАЯ ВЕРСИЯ
 launch4j {
     mainClassName = 'musicsearch.App'
-    // Указываем задачу, а не файл - это важно!
-    jarTask = project.tasks.shadowJar
+    jarTask = tasks.shadowJar
     outfile = 'MusicSearch.exe'
-    icon = "${projectDir}/src/main/resources/icon.ico"    
-    // Настройки JVM для JavaFX
-    jvmOptions = [
-        '--module-path=%JAVAFX_HOME%/lib',
-        '--add-modules=javafx.controls,javafx.fxml,javafx.media',
-        '-Dfile.encoding=UTF-8',
-        '-Xmx512m'
-    ]
-    
-    // Настройки Java
+    icon = icoPath   
     jreMinVersion = '21'
-    maxHeapSize = 512
-    bundledJrePath = '%JAVA_HOME%'
-    
-    
-    // Информация о версии
-    version = project.version
-    textVersion = project.version
-    copyright = 'MusicSearch 2024'
-    companyName = 'MusicSearch'
-    fileDescription = 'Music Search Application'
-    productName = 'MusicSearch'
+    bundledJrePath = 'runtime'
+    dontWrapJar = false
+    jvmOptions = ['-Xmx512m']
+    headerType = 'gui'
 }
 
-// Создаем portable версию с EXE
-task createPortableWithExe {
-    dependsOn createExe
-    
-    doLast {
-        def portableDir = file("${buildDir}/portable-exe/MusicSearch")
-        portableDir.mkdirs()
-        
-        // Копируем EXE файл из папки launch4j
+
+// ------------------ Инсталлятор через Inno Setup ------------------
+tasks.register('buildInstaller') {
+    dependsOn 'launch4j', 'createRuntime'
+    group = 'build'
+    description = 'Копирует артефакты (EXE, runtime, icon, .env) в рабочую папку и запускает Inno Setup'
+
+    doFirst {
+        def exeSrc = file("$projectDir/build/launch4j/MusicSearch.exe")
+        def runtimeSrc = file("$projectDir/build/runtime")
+        if (!exeSrc.exists()) throw new GradleException("EXE not found: ${exeSrc}")
+        if (!runtimeSrc.exists()) throw new GradleException("runtime not found: ${runtimeSrc}")
+
+        def workDir = file("$buildDir/installerWork")
+        if (workDir.exists()) workDir.deleteDir()
+        workDir.mkdirs()
+
+        // копируем EXE
         copy {
-            from "${buildDir}/launch4j"
-            include "MusicSearch.exe"
-            into portableDir
+            from exeSrc
+            into workDir
         }
-        
-        // Копируем .env файл
-        def envFile = file('.env')
-        if (envFile.exists()) {
-            copy {
-                from envFile
-                into portableDir
-            }
-            println "✓ .env файл скопирован"
-        }
-        
-        // Копируем иконку в portable версию (для справки)
-        def iconFile = file("${projectDir}/src/main/resources/icon.ico")
-        if (iconFile.exists()) {
-            copy {
-                from iconFile
-                into portableDir
-            }
-            println "✓ Иконка скопирована в portable версию"
-        }
-        
-        // ... остальной код без изменений ...
-        // Копируем JAR для BAT файла
+
         copy {
-            from shadowJar.archiveFile
-            into portableDir
-            rename { 'MusicSearch.jar' }
+            from runtimeSrc
+            into file("${workDir}/runtime")
         }
-        
-        // Создаем BAT файл
-        def batFile = new File("${portableDir}/MusicSearch.bat")
-        batFile.text = """@echo off
-chcp 65001 >nul
-title MusicSearch
-echo ========================================
-echo    MusicSearch - BAT Launcher
-echo ========================================
-echo.
 
-:: Проверка Java
-echo [1/3] Проверка установки Java...
-java -version >nul 2>&1
-if errorlevel 1 (
-    echo ❌ ОШИБКА: Java не установлена или не в PATH
-    echo.
-    echo Установите Java 21+ с JavaFX:
-    echo https://adoptium.net/temurin/releases/?version=21&package=jdk-fx
-    echo.
-    pause
-    exit /b 1
-)
-echo ✓ Java обнаружена
-echo.
-
-:: Проверка JAR
-echo [2/3] Проверка JAR файла...
-if not exist "MusicSearch.jar" (
-    echo ❌ ОШИБКА: MusicSearch.jar не найден
-    pause
-    exit /b 1
-)
-echo ✓ JAR файл найден
-echo.
-
-:: Запуск приложения
-echo [3/3] Запуск приложения...
-echo.
-java -jar MusicSearch.jar
-
-pause
-"""
-        
-        println "=" * 60
-        println "Portable версия с EXE создана: ${portableDir}"
-        println "Основной файл: MusicSearch.exe (с иконкой)"
-        println "Запасной файл: MusicSearch.bat"
-        println "=" * 60
-    }
-}
-
-task createExeZip(type: Zip) {
-    dependsOn createPortableWithExe
-    from "${buildDir}/portable-exe"
-    archiveFileName = "MusicSearch-${version}-windows.exe.zip"
-    destinationDirectory = file("${buildDir}/distributions")
-    
-    doLast {
-        println "✓ ZIP архив создан: build/distributions/MusicSearch-${version}-windows.exe.zip"
-    }
-}
-
-// Главная задача
-task buildWithExe {
-    dependsOn createExeZip
-    doLast {
-        println "=" * 60
-        println "🎉 EXE ВЕРСИЯ УСПЕШНО СОЗДАНА!"
-        println "📁 Файл: build/distributions/MusicSearch-${version}-windows.exe.zip"
-        println ""
-        println "📋 Содержимое:"
-        println "  ✅ MusicSearch.exe - запускаемый файл через Launch4j"
-        println "  🔧 MusicSearch.bat - скрипт запуска (запасной вариант)"
-        println "  📦 MusicSearch.jar - JAR файл приложения"
-        println "  ⚙️  .env - файл конфигурации"
-        println ""
-        println "🚀 Запуск:"
-        println "  1. Распакуйте архив в любую папку"
-        println "  2. Запустите MusicSearch.exe"
-        println "  3. Если есть проблемы - запустите MusicSearch.bat"
-        println ""
-        println "💡 Убедитесь, что установлена Java 21+ с JavaFX!"
-        println "=" * 60
-    }
-}
-
-// Добавьте эти задачи в build.gradle
-
-// Создаем необходимые файлы для Inno Setup
-task prepareInnoSetupFiles {
-    doLast {
-        def installerDir = file("${buildDir}/installer")
-        installerDir.mkdirs()
-        
-        // Копируем иконку для установщика ИЗ RESOURCES
-        def iconFile = file("${projectDir}/src/main/resources/icon.ico")
-        if (iconFile.exists()) {
+        def iconSrc = file("${projectDir}/src/main/resources/icon.ico")
+        if (iconSrc != null) {
             copy {
-                from iconFile
-                into installerDir
+                from iconSrc
+                into workDir
             }
-            println "✓ Иконка из resources скопирована для установщика"
         } else {
-            println "⚠ Иконка не найдена: ${iconFile.path}"
-            println "  Проверьте путь: app/src/main/resources/icon.ico"
+            logger.lifecycle("Warning: icon.ico not found in standard locations; installer will be built without Setup icon.")
         }
-        
-        // Создаем лицензию и readme если нужно
-        def licenseFile = new File("${installerDir}/license.txt")
-        licenseFile.text = """MusicSearch License Agreement
 
-MusicSearch Application v${version}
-
-This software is provided "as is" without warranty of any kind.
+        def envSrc = file("${projectDir}/.env")
+        if (envSrc != null) {
+            copy {
+                from envSrc
+                into workDir
+            }
+        } else {
+            // создаём шаблон .env в workDir, чтобы инсталлятор положил его у пользователя
+            def tmpl = file("${workDir}/.env")
+            tmpl.text = """# MusicSearch configuration (template)
+# Put your keys here or edit after installation
+API_KEY=
+API_URL=
 """
-        
-        def readmeFile = new File("${installerDir}/readme.txt")
-        readmeFile.text = """MusicSearch v${version}
+            logger.lifecycle("No .env found in project; created template at ${tmpl}")
+        }
 
-Thank you for installing MusicSearch!
-"""
-    }
-}
-
-// Исправленный скрипт Inno Setup
-task createInnoSetupScript {
-    dependsOn buildWithExe, prepareInnoSetupFiles
-    
-    doLast {
-        def issFile = new File("${buildDir}/installer/setup.iss")
-        
-        // Проверяем существование иконки В RESOURCES
-        def iconExists = file("${projectDir}/src/main/resources/icon.ico").exists()
-        
-        issFile.text = """[Setup]
+        // создаём временный .iss с относительными путями (icon и .env уже в workDir)
+        def tmpIss = file("${workDir}/MusicSearch_tmp.iss")
+        def setupIconLine = (iconSrc != null) ? "SetupIconFile=icon.ico" : ""
+        tmpIss.text = """
+[Setup]
 AppName=MusicSearch
-AppVersion=${version}
-AppVerName=MusicSearch ${version}
-AppPublisher=MusicSearch
-AppPublisherURL=https://github.com/your-repo
-AppSupportURL=https://github.com/your-repo/issues
-AppUpdatesURL=https://github.com/your-repo/releases
-DefaultDirName={autopf}\\\\MusicSearch
+AppVersion=1.0
+DefaultDirName={pf}\\MusicSearch
 DefaultGroupName=MusicSearch
-AllowNoIcons=yes
-OutputDir=..\\\\distributions
+${setupIconLine}
+OutputDir=..\\installer
 OutputBaseFilename=MusicSearchSetup
-${iconExists ? 'SetupIconFile=icon.ico' : '; SetupIconFile=icon.ico'}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
-DisableWelcomePage=no
-DisableDirPage=no
-DisableProgramGroupPage=no
-
-[Languages]
-Name: "russian"; MessagesFile: "compiler:Languages\\\\Russian.isl"
-Name: "english"; MessagesFile: "compiler:Default.isl"
-
-[Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "..\\\\portable-exe\\\\MusicSearch\\\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "MusicSearch.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "runtime\\*"; DestDir: "{app}\\runtime"; Flags: recursesubdirs createallsubdirs
+Source: ".env"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\\\\MusicSearch"; Filename: "{app}\\\\MusicSearch.exe"
-Name: "{group}\\\\{cm:UninstallProgram,MusicSearch}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\\\\MusicSearch"; Filename: "{app}\\\\MusicSearch.exe"; Tasks: desktopicon
+Name: "{group}\\MusicSearch"; Filename: "{app}\\MusicSearch.exe"
+""".stripIndent().trim()
 
-[Run]
-Filename: "{app}\\\\MusicSearch.exe"; Description: "{cm:LaunchProgram,MusicSearch}"; Flags: nowait postinstall skipifsilent
+        // ensure output dir exists (app/build/installer)
+        def installerOut = file("$projectDir/build/installer")
+        installerOut.mkdirs()
+    }
 
-[UninstallDelete]
-Type: filesandordirs; Name: "{app}"
-"""
-        
-        println "Скрипт Inno Setup создан: ${issFile}"
-        if (iconExists) {
-            println "✓ Иконка найдена и будет использована"
-        } else {
-            println "⚠ Иконка не найдена в resources. Добавьте app/src/main/resources/icon.ico"
+    doLast {
+        def workDir = file("$buildDir/installerWork")
+        def tmpIss = file("${workDir}/MusicSearch_tmp.iss")
+        def iscc = file('C:/Program Files (x86)/Inno Setup 6/ISCC.exe')
+        if (!iscc.exists()) throw new GradleException("ISCC not found at ${iscc}. Install Inno Setup or update path.")
+
+        exec {
+            workingDir workDir
+            commandLine iscc.absolutePath, tmpIss.name
         }
+        logger.lifecycle("Installer created at: ${projectDir}/build/installer")
     }
-}
-
-// Создаем установщик с помощью Inno Setup
-task buildInnoInstaller(type: Exec) {
-    dependsOn createInnoSetupScript
-    
-    def issFile = "${buildDir}/installer/setup.iss"
-    
-    commandLine 'iscc', issFile
-    
-    doFirst {
-        println "Создание установщика с помощью Inno Setup..."
-    }
-    
-    doLast {
-        println "✅ Inno Setup установщик создан!"
-        println "📦 Файл: build/distributions/MusicSearchSetup.exe"
-    }
-}
-
-// Универсальная задача для создания установщика
-task buildInstaller {
-    dependsOn buildInnoInstaller
-    doLast {
-        println "=" * 60
-        println "🎉 ПРОФЕССИОНАЛЬНЫЙ УСТАНОВЩИК СОЗДАН!"
-        println "📦 Файл: build/distributions/MusicSearchSetup.exe"
-        println ""
-        println "📋 Что включено в установщик:"
-        println "   ✅ Автоматическая установка в Program Files"
-        println "   ✅ Ярлыки в меню Пуск и на рабочий стол"
-        println "   ✅ Запись в реестр для удаления через Панель управления"
-        println "   ✅ Русский и английский языки"
-        println "   ✅ Автозапуск после установки"
-        println ""
-        println "🚀 Для распространения:"
-        println "   Просто передайте файл MusicSearchSetup.exe пользователям!"
-        println "=" * 60
-    }
-}
-
-// Альтернатива: если нужна лицензия, создаем минимальную версию
-task buildMinimalInstaller(type: Exec) {
-    dependsOn buildWithExe
-    
-    def issFile = "${buildDir}/minimal-setup.iss"
-    
-    doFirst {
-        new File(issFile).text = """[Setup]
-AppName=MusicSearch
-AppVersion=${version}
-AppPublisher=MusicSearch
-DefaultDirName={autopf}\\\\MusicSearch
-DefaultGroupName=MusicSearch
-OutputDir=../distributions
-OutputBaseFilename=MusicSearchSetup
-Compression=lzma
-SolidCompression=yes
-
-[Files]
-Source: "../portable-exe/MusicSearch/*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
-
-[Icons]
-Name: "{group}\\\\MusicSearch"; Filename: "{app}\\\\MusicSearch.exe"
-Name: "{autodesktop}\\\\MusicSearch"; Filename: "{app}\\\\MusicSearch.exe"
-"""
-    }
-    
-    commandLine 'iscc', issFile
-    
-    doLast {
-        println "✅ Минимальный установщик создан!"
-    }
-}
-
-clean {
-    delete 'build/launch4j', 'build/portable-exe', 'build/distributions'
 }

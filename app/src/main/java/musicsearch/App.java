@@ -1,8 +1,11 @@
 package musicsearch;
 
+import java.util.Objects;
+
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.scene.control.Label;
+import javafx.scene.image.Image;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 import musicsearch.widgets.MainWindow;
@@ -12,6 +15,14 @@ public class App extends Application {
 
     @Override
     public void start(Stage primaryStage) {
+
+        try {
+            primaryStage.getIcons().add(new Image(
+                Objects.requireNonNull(getClass().getResourceAsStream("/icon.ico"))
+            ));
+        } catch (Exception e) {
+            System.err.println("Не удалось загрузить иконку: " + e.getMessage());
+        }
 
         Label musicsearchLabel = new Label("music-search");
 
