@@ -13,6 +13,10 @@ public class App extends Application {
     @Override
     public void start(Stage primaryStage) {
 
+        // В начале public void start(Stage stage) { ... }
+        System.out.println("start() on FX thread? " + javafx.application.Platform.isFxApplicationThread());
+
+
         Label musicsearchLabel = new Label("music-search");
 
         StackPane root = new StackPane();

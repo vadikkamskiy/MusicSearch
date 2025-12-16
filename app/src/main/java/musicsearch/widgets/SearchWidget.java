@@ -52,6 +52,10 @@ public class SearchWidget {
         return layout;
     }
 
+    public boolean getActivity(){
+        return searchField.isFocused();
+    }
+
     private static final String SEARCH_FIELD_STYLE = 
             "-fx-background-color: #2A2F3A; " +
             "-fx-text-fill: #D6D6E3; " +
