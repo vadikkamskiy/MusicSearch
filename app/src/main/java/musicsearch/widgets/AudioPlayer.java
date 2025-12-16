@@ -30,6 +30,7 @@ public class AudioPlayer extends HBox {
     private Label currentTrack;
     private Slider progressSlider;
     private Label timeLabel;
+    private SearchWidget searchWidget;
     private Button playButton, pauseButton, stopButton, downloadButton,
         prevButton, nextButton;
     private Slider volumeSlider;
@@ -202,7 +203,7 @@ public class AudioPlayer extends HBox {
         this.sceneProperty().addListener((obs, oldScene, newScene) -> {
             if (newScene != null) {
                 newScene.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
-                    if (event.getCode() == KeyCode.SPACE) {
+                    if (event.getCode() == KeyCode.SPACE && !searchWidget.getActivity()) {
                         if (isPlaying) {
                             pause();
                         } else {
@@ -402,6 +403,10 @@ public class AudioPlayer extends HBox {
             mediaPlayer.setVolume(volume);
         }
         volumeSlider.setValue(volume * 100);
+    }
+
+    public void setSearchWidget(SearchWidget searchWidget){
+        this.searchWidget = searchWidget;
     }
     
     public double getVolume() {

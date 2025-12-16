@@ -55,6 +55,7 @@ public class SearchEngine {
     );
     private List<MediaModel> LocalFiles = new ArrayList<>();
     private CurrentTrackListener currentTrackListener;
+    private FindLyrics lyricsFinder = new FindLyrics();
     private GridPane mediaLayout;
     private PlaybackListener playbackListener;
     private final ExecutorService executor = Executors.newFixedThreadPool(3);
@@ -138,7 +139,6 @@ public class SearchEngine {
             }
         });
     }
-
 
     private void updateMediaLayout() {
         mediaLayout.getChildren().clear();
@@ -260,6 +260,9 @@ public class SearchEngine {
                     showErrorAlert("Lyrics not found for: " + track);
                 }
             });
+        });
+        EventBus.subscribe(LyricSearchEvent.class, event-> {
+            findLyrics(event.track);
         });
     }
 

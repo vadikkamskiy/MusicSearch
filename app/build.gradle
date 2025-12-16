@@ -15,50 +15,76 @@ javafx {
     modules = ['javafx.controls', 'javafx.fxml', 'javafx.media']
 }
 
-repositories {
-    mavenCentral()
-}
+repositories { mavenCentral() }
 
 dependencies {
     implementation 'org.jsoup:jsoup:1.21.2'
     implementation 'com.google.code.gson:gson:2.10.1'
     compileOnly 'org.projectlombok:lombok:1.18.30'
     annotationProcessor 'org.projectlombok:lombok:1.18.30'
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
     implementation 'com.google.guava:guava:32.1.2-jre'
     implementation 'io.github.cdimascio:dotenv-java:3.2.0'
     implementation 'org:jaudiotagger:2.0.3'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
+    implementation 'org.slf4j:slf4j-api:2.0.9'
+    implementation 'ch.qos.logback:logback-classic:1.4.11'
+    
 }
 
 java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
+    toolchain { languageVersion = JavaLanguageVersion.of(21) }
 }
 
 application {
     mainClass = 'musicsearch.App'
 }
 
-tasks.named('test') {
-    useJUnitPlatform()
+tasks.named('test') { useJUnitPlatform() }
+
+shadowJar {
+    archiveBaseName.set('MusicSearch')
+    archiveClassifier.set('')
+    archiveVersion.set(version)
+    mergeServiceFiles()
+    manifest {
+        attributes('Main-Class': mainClassName, 'Implementation-Version': version)
+    }
 }
 
-// ------------------ jlink кастомного JRE ------------------
-def jmodsDir = file("C:/javafx-jmods-21")
+// copy .env into resources so it ends up in JAR (optional)
+task copyEnv(type: Copy) {
+    from '.env'
+    into 'build/resources/main'
+}
+processResources.dependsOn copyEnv
+
+// ----------------- jlink (custom runtime) -----------------
+// configure these paths to your environment
+def javaHomeForJlink = file(System.getenv('JLINK_JAVA_HOME') ?: "C:/Program Files/Java/jdk-21") // prefer env JLINK_JAVA_HOME, else default
+def javafxJmodsDir = file(System.getenv('JAVAFX_JMODS') ?: "C:/javafx-jmods-21") // prefer env JAVAFX_JMODS, else default
 def customRuntimeDir = file("$buildDir/runtime")
 
-tasks.register('createRuntime', Exec) {
-    dependsOn 'classes'
+task createRuntime(type: Exec) {
+    dependsOn classes
     group = 'build'
-    description = 'Создает кастомное JRE с JavaFX'
+    description = 'Создает кастомное JRE с JavaFX (jlink)'
 
-    def modules = 'java.base,java.logging,java.desktop,javafx.controls,javafx.fxml,javafx.media'
+    doFirst {
+        if (!javaHomeForJlink.exists()) {
+            throw new GradleException("javaHomeForJlink not found: ${javaHomeForJlink}. Set env JLINK_JAVA_HOME or edit build.gradle")
+        }
+        if (!javafxJmodsDir.exists()) {
+            throw new GradleException("javafxJmodsDir not found: ${javafxJmodsDir}. Set env JAVAFX_JMODS or edit build.gradle")
+        }
+        if (customRuntimeDir.exists()) customRuntimeDir.deleteDir()
+    }
 
+    def modules = 'java.base,java.logging,java.desktop,java.security.jgss,jdk.crypto.ec,javafx.controls,javafx.fxml,javafx.media'    
+    
     commandLine = [
-        "${System.getProperty('java.home')}/bin/jlink",
-        '--module-path', "${jmodsDir};${System.getProperty('java.home')}/jmods",
+        "${javaHomeForJlink}/bin/jlink",
+        '--module-path', "${javafxJmodsDir};${javaHomeForJlink}/jmods",
         '--add-modules', modules,
         '--output', customRuntimeDir,
         '--strip-debug',
@@ -68,95 +94,132 @@ tasks.register('createRuntime', Exec) {
     ]
 }
 
-// ------------------ Fat JAR ------------------
-tasks.named('shadowJar') {
-    archiveBaseName.set('MusicSearch')
-    archiveClassifier.set('')
-    archiveVersion.set('1.0.0')
-}
-
-def icoPath = file('src/main/resources/icon.ico').absolutePath
-logger.lifecycle("Launching with icon: ${icoPath} exists=${file(icoPath).exists()}")
-
+// ----------------- Launch4j -----------------
 launch4j {
     mainClassName = 'musicsearch.App'
-    jarTask = tasks.shadowJar
+    jarTask = project.tasks.shadowJar
     outfile = 'MusicSearch.exe'
-    icon = icoPath   
+    icon = file('src/main/resources/icon.ico').absolutePath
+    jvmOptions = ['-Dfile.encoding=UTF-8', '-Xmx512m']
     jreMinVersion = '21'
+    maxHeapSize = 512
+    // IMPORTANT: relative path that EXE will use at runtime. Must be 'runtime' (folder next to EXE)
     bundledJrePath = 'runtime'
-    dontWrapJar = false
-    jvmOptions = ['-Xmx512m']
-    headerType = 'gui'
+    version = project.version
+    textVersion = project.version
+    copyright = 'MusicSearch'
+    companyName = 'MusicSearch'
+    fileDescription = 'Music Search Application'
+    productName = 'MusicSearch'
 }
 
+// createExe task alias exists in plugin; ensure it's available
+tasks.createExe.enabled = true
 
-// ------------------ Инсталлятор через Inno Setup ------------------
-tasks.register('buildInstaller') {
-    dependsOn 'launch4j', 'createRuntime'
-    group = 'build'
-    description = 'Копирует артефакты (EXE, runtime, icon, .env) в рабочую папку и запускает Inno Setup'
+// ----------------- portable package -----------------
+task createPortableWithExe {
+    dependsOn createRuntime, createExe, shadowJar
+    group = 'distribution'
+    description = 'Собирает portable папку с EXE, JAR, runtime и .env'
 
-    doFirst {
-        def exeSrc = file("$projectDir/build/launch4j/MusicSearch.exe")
-        def runtimeSrc = file("$projectDir/build/runtime")
-        if (!exeSrc.exists()) throw new GradleException("EXE not found: ${exeSrc}")
-        if (!runtimeSrc.exists()) throw new GradleException("runtime not found: ${runtimeSrc}")
+    doLast {
+        def portableDir = file("$buildDir/portable-exe/MusicSearch")
+        if (portableDir.exists()) portableDir.deleteDir()
+        portableDir.mkdirs()
 
-        def workDir = file("$buildDir/installerWork")
-        if (workDir.exists()) workDir.deleteDir()
-        workDir.mkdirs()
-
-        // копируем EXE
+        // Copy EXE (generated by launch4j into build/launch4j)
         copy {
-            from exeSrc
-            into workDir
+            from "$buildDir/launch4j"
+            include "MusicSearch.exe"
+            into portableDir
         }
 
+        // Copy jar
         copy {
-            from runtimeSrc
-            into file("${workDir}/runtime")
+            from shadowJar.archiveFile
+            into portableDir
+            rename { 'MusicSearch.jar' }
         }
 
-        def iconSrc = file("${projectDir}/src/main/resources/icon.ico")
-        if (iconSrc != null) {
-            copy {
-                from iconSrc
-                into workDir
-            }
-        } else {
-            logger.lifecycle("Warning: icon.ico not found in standard locations; installer will be built without Setup icon.")
+        // Copy runtime INTO portableDir/runtime  (exact name 'runtime' required)
+        copy {
+            from customRuntimeDir
+            into "${portableDir}/runtime"
         }
 
-        def envSrc = file("${projectDir}/.env")
-        if (envSrc != null) {
-            copy {
-                from envSrc
-                into workDir
-            }
+        // Copy .env if exists (puts into app root)
+        def envFile = file('.env')
+        if (envFile.exists()) {
+            copy { from envFile; into portableDir }
         } else {
-            // создаём шаблон .env в workDir, чтобы инсталлятор положил его у пользователя
-            def tmpl = file("${workDir}/.env")
-            tmpl.text = """# MusicSearch configuration (template)
-# Put your keys here or edit after installation
-API_KEY=
-API_URL=
+            // create an empty template to avoid missing-file problems
+            new File("${portableDir}/.env").text = "# MusicSearch config\n"
+        }
+
+        // copy icon for installer convenience
+        def iconFile = file('src/main/resources/icon.ico')
+        if (iconFile.exists()) copy { from iconFile; into portableDir }
+
+        // make BAT launcher that uses bundled runtime explicitly
+        def bat = new File("${portableDir}/MusicSearch.bat")
+        bat.text = """@echo off
+chcp 65001 >nul
+cd /d "%~dp0"
+if not exist "runtime\\bin\\java.exe" (
+  echo ERROR: bundled runtime not found.
+  pause
+  exit /b 1
+)
+"%~dp0runtime\\bin\\java.exe" -jar "%~dp0MusicSearch.jar"
 """
-            logger.lifecycle("No .env found in project; created template at ${tmpl}")
+        println "Portable folder created: ${portableDir}"
+    }
+}
+
+// ----------------- zip portable -----------------
+task createExeZip(type: Zip) {
+    dependsOn createPortableWithExe
+    from "$buildDir/portable-exe"
+    archiveFileName = "MusicSearch-${version}-portable.zip"
+    destinationDirectory = file("$buildDir/distributions")
+    doLast { println "ZIP created: ${archiveFileName}" }
+}
+
+// ----------------- Inno Setup installer -----------------
+// Path to ISCC (Inno Setup Compiler). If 'iscc' in PATH you can leave as 'iscc'.
+// To override, set project property 'isccPath' or environment variable ISCC_PATH.
+def isccPath = project.hasProperty('isccPath') ? project.property('isccPath') : (System.getenv('ISCC_PATH') ?: 'iscc')
+
+task prepareInnoSetupFiles {
+    dependsOn createExeZip
+    doLast {
+        def installerDir = file("$buildDir/installer")
+        if (installerDir.exists()) installerDir.deleteDir()
+        installerDir.mkdirs()
+
+        // copy portable folder into installer working directory
+        copy {
+            from "$buildDir/portable-exe/MusicSearch"
+            into "${installerDir}/App"
         }
 
-        // создаём временный .iss с относительными путями (icon и .env уже в workDir)
-        def tmpIss = file("${workDir}/MusicSearch_tmp.iss")
-        def setupIconLine = (iconSrc != null) ? "SetupIconFile=icon.ico" : ""
-        tmpIss.text = """
+        // copy icon for setup if exists
+        def iconFile = file('src/main/resources/icon.ico')
+        if (iconFile.exists()) {
+            copy { from iconFile; into installerDir }
+        }
+
+        // create default .iss template
+        def iss = new File("${installerDir}/MusicSearch.iss")
+        iss.text = """
 [Setup]
 AppName=MusicSearch
-AppVersion=1.0
+AppVersion=${version}
 DefaultDirName={pf}\\MusicSearch
 DefaultGroupName=MusicSearch
-${setupIconLine}
-OutputDir=..\\installer
+OutputDir=..\\distributions
 OutputBaseFilename=MusicSearchSetup
+${iconFile.exists() ? 'SetupIconFile=icon.ico' : '; SetupIconFile=icon.ico'}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
