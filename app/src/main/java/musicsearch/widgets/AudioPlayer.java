@@ -39,6 +39,7 @@ public class AudioPlayer extends HBox {
     private ListView<MediaWidget> playlistView;
 
     private enum RepeatMode { NONE, ONE, ALL }
+    //TODO: Implement repeat modes
     private RepeatMode repeatMode = RepeatMode.NONE;
     private boolean shuffle = false;
     
