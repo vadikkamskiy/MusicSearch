@@ -16,6 +16,8 @@ import javafx.beans.property.ListProperty;
 import javafx.beans.property.SimpleListProperty;
 import javafx.collections.FXCollections;
 import javafx.scene.layout.GridPane;
+import javafx.stage.Stage;
+
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -32,6 +34,7 @@ import musicsearch.models.DataUpdateListener;
 import musicsearch.models.MediaModel;
 import musicsearch.models.PlaybackListener;
 import musicsearch.service.Events.ArtistSearchEvent;
+import musicsearch.service.Events.LyricSearchEvent;
 import musicsearch.widgets.MediaWidget;
 
 public class SearchEngine {
@@ -40,6 +43,7 @@ public class SearchEngine {
     );
     private List<MediaModel> LocalFiles = new ArrayList<>();
     private CurrentTrackListener currentTrackListener;
+    private FindLyrics lyricsFinder = new FindLyrics();
     private GridPane mediaLayout;
     private PlaybackListener playbackListener;
     private final ExecutorService executor = Executors.newFixedThreadPool(3);
@@ -51,12 +55,14 @@ public class SearchEngine {
     public SearchEngine(GridPane mediaLayout) {
         this.mediaLayout = mediaLayout;
         results.addListener((Observable obs) -> updateMediaLayout());
+        searchEventListener();
     }
 
     public SearchEngine(GridPane mediaLayout, PlaybackListener playbackListener) {
         this.mediaLayout = mediaLayout;
         this.playbackListener = playbackListener;
         results.addListener((Observable obs) -> updateMediaLayout());
+        searchEventListener();
     }
 
     public void setPlaybackListener(PlaybackListener playbackListener) {
@@ -70,7 +76,7 @@ public class SearchEngine {
             try {
                 String searchUrl = "https://" +
                     dotenv.get("URL_SOURCE") +
-                    "/search?q=" + query.replace(" ", "+");
+                    "/search?q=" + query;
                 Document doc = Jsoup.connect(searchUrl)
                         .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
                         .timeout(5000)
@@ -113,7 +119,6 @@ public class SearchEngine {
             }
         });
     }
-
 
     private void updateMediaLayout() {
         mediaLayout.getChildren().clear();
@@ -222,9 +227,17 @@ public class SearchEngine {
         goHome();
     }
 
+    void findLyrics(String track){
+        System.out.println("Lyrics :" + track);
+        lyricsFinder.searchAndShowLyrics((Stage) mediaLayout.getScene().getWindow(), track);
+    }
+
     private void searchEventListener() {
         EventBus.subscribe(ArtistSearchEvent.class, event -> {
             search(event.artist);
+        });
+        EventBus.subscribe(LyricSearchEvent.class, event-> {
+            findLyrics(event.track);
         });
     }
 
