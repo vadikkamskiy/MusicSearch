@@ -12,7 +12,7 @@ mainClassName = 'musicsearch.App'
 
 javafx {
     version = "21"
-    modules = ['javafx.controls', 'javafx.fxml', 'javafx.media']
+    modules = [ 'javafx.controls', 'javafx.fxml', 'javafx.media']
 }
 
 repositories { mavenCentral() }
@@ -225,29 +225,44 @@ SolidCompression=yes
 WizardStyle=modern
 
 [Files]
-Source: "MusicSearch.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "runtime\\*"; DestDir: "{app}\\runtime"; Flags: recursesubdirs createallsubdirs
-Source: ".env"; DestDir: "{app}"; Flags: ignoreversion
+; copy everything from working App folder into {app}
+Source: "App\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[Tasks]
+Name: "desktopicon"; Description: "Создать ярлык на рабочем столе"; Flags: unchecked
 
 [Icons]
 Name: "{group}\\MusicSearch"; Filename: "{app}\\MusicSearch.exe"
-""".stripIndent().trim()
+Name: "{commondesktop}\\MusicSearch"; Filename: "{app}\\MusicSearch.exe"; Tasks: desktopicon
 
-        // ensure output dir exists (app/build/installer)
-        def installerOut = file("$projectDir/build/installer")
-        installerOut.mkdirs()
+[Run]
+Filename: "{app}\\MusicSearch.exe"; Description: "{cm:LaunchProgram,MusicSearch}"; Flags: nowait postinstall skipifsilent
+"""
+        println "Inno setup files prepared: ${installerDir}"
     }
+}
 
+task buildInnoInstaller(type: Exec) {
+    dependsOn prepareInnoSetupFiles
+    group = 'distribution'
+    description = 'Builds Inno Setup installer using ISCC'
+    doFirst {
+        println "Running ISCC: ${isccPath}"
+    }
+    commandLine isccPath, "${buildDir}/installer/MusicSearch.iss"
     doLast {
-        def workDir = file("$buildDir/installerWork")
-        def tmpIss = file("${workDir}/MusicSearch_tmp.iss")
-        def iscc = file('C:/Program Files (x86)/Inno Setup 6/ISCC.exe')
-        if (!iscc.exists()) throw new GradleException("ISCC not found at ${iscc}. Install Inno Setup or update path.")
-
-        exec {
-            workingDir workDir
-            commandLine iscc.absolutePath, tmpIss.name
-        }
-        logger.lifecycle("Installer created at: ${projectDir}/build/installer")
+        println "Installer output: ${buildDir}/distributions"
     }
+}
+
+task buildInstaller {
+    dependsOn buildInnoInstaller
+    doLast {
+        println "buildInstaller finished. Check build/distributions for MusicSearchSetup.exe"
+    }
+}
+
+// ----------------- clean additions -----------------
+clean {
+    delete 'build/launch4j', 'build/portable-exe', 'build/distributions', 'build/runtime', 'build/installer'
 }
