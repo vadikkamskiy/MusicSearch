@@ -19,6 +19,7 @@ import javafx.scene.image.WritableImage;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import javafx.scene.layout.StackPane;
 import musicsearch.models.DataUpdateListener;
 import musicsearch.models.MediaModel;
 import musicsearch.models.PlaybackListener;
@@ -46,6 +47,7 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
     private boolean imageLoaded = false;
     private boolean isCurrentTrack = false;
     private boolean isDownloaded;
+    private Label downloadedIndicatorLabel;
     private ContextMenu contextMenu;
     private final DataUpdateListener dataUpdateListener;
 
@@ -93,6 +95,10 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
 
         setPlaceholderImage();
 
+        StackPane imageContainer = new StackPane(imageView);
+        imageContainer.setPrefSize(150, 150);
+        imageContainer.setStyle("-fx-alignment: center;");
+
         String artistText = "";
         String songText = "";
         if (mediaModel.getTitle() != null && mediaModel.getTitle().contains("-")) {
@@ -112,7 +118,29 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
         Label durationLabel = new Label(mediaModel.getTime());
         durationLabel.setStyle("-fx-text-fill: #9EA3B5; -fx-font-size: 10px;");
 
-        this.getChildren().addAll(imageView, Artist, Song, durationLabel);
+        downloadedIndicatorLabel = new Label("⬇");
+        downloadedIndicatorLabel.setStyle(
+            "-fx-background-color: rgba(155, 89, 182, 0.95);" +
+            "-fx-text-fill: white;" +
+            "-fx-font-weight: bold;" +
+            "-fx-font-size: 10px;" +
+            "-fx-background-radius: 50%;" +
+            "-fx-alignment: center;" +
+            "-fx-padding: 2 6 2 6;"
+        );
+        downloadedIndicatorLabel.setVisible(isDownloaded);
+        Tooltip.install(downloadedIndicatorLabel, new Tooltip("Файл загружен локально"));
+
+        VBox contentBox = new VBox(5, imageContainer, Artist, Song, durationLabel);
+        contentBox.setAlignment(javafx.geometry.Pos.TOP_CENTER);
+
+        StackPane indicatorContainer = new StackPane(downloadedIndicatorLabel);
+        StackPane.setAlignment(downloadedIndicatorLabel, javafx.geometry.Pos.BOTTOM_LEFT);
+        StackPane.setMargin(downloadedIndicatorLabel, new Insets(0, 0, 4, 4));
+
+        StackPane root = new StackPane(contentBox, indicatorContainer);
+
+        this.getChildren().setAll(root);
     }
 
     private void setPlaceholderImage() {
@@ -412,6 +440,7 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
                         System.out.println("Deleted file: " + file.getAbsolutePath());
                         isDownloaded = false;
                         mediaModel.setDownloaded(false);
+                        updateDownloadedIndicator();
                         if (dataUpdateListener != null) dataUpdateListener.onDataChanged();
                     }
                 }
@@ -580,6 +609,12 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
 
     public MediaModel getModel() {
         return mediaModel;
+    }
+
+    private void updateDownloadedIndicator() {
+        if (downloadedIndicatorLabel != null) {
+            downloadedIndicatorLabel.setVisible(isDownloaded);
+        }
     }
 
     private static final String NORMAL_STYLE =

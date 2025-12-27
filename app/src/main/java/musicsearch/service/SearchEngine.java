@@ -3,6 +3,8 @@ package musicsearch.service;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import ch.qos.logback.core.model.Model;
+
 import org.jaudiotagger.audio.AudioFile;
 import org.jaudiotagger.audio.AudioFileIO;
 import org.jaudiotagger.tag.FieldKey;
@@ -140,7 +142,7 @@ public class SearchEngine {
             mediaLayout.add(widget, column, row);
         }
     }
-
+    
     public void shutdown() {
         executor.shutdown();
     }
@@ -154,7 +156,6 @@ public class SearchEngine {
         File homeDir = new File(System.getProperty("user.home"), "Music");
         File[] files = homeDir.listFiles((dir, name) -> name.endsWith(".mp3") || name.endsWith(".flac"));
         if (files != null) {
-            List<MediaModel> homeModels = new ArrayList<>();
             for (File file : files) {
                 try {
                     AudioFile audioFile = AudioFileIO.read(file);
@@ -164,12 +165,12 @@ public class SearchEngine {
                     String duration = String.valueOf(audioFile.getAudioHeader().getTrackLength() / 60) + ":" +
                             String.format("%02d", audioFile.getAudioHeader().getTrackLength() % 60);
                     MediaModel model = new MediaModel(artist + " - " + title, duration, file.toURI().toString(), "", true);
-                    homeModels.add(model);
+                    LocalFiles.add(model);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
-            results.setAll(homeModels);
+            results.setAll(LocalFiles);
         }
     }
 
@@ -180,6 +181,7 @@ public class SearchEngine {
                     String searchUrl = "https://" +
                         dotenv.get("URL_SOURCE") +
                         "/search/start/" + 48 * searchPage + "?q=" + currentQuery;
+                    System.out.println(searchUrl);
                     Document doc = Jsoup.connect(searchUrl)
                             .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
                             .timeout(5000)
