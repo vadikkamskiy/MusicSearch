@@ -90,26 +90,24 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
 
         setPlaceholderImage();
 
-        String artistText = "";
-        String songText = "";
-        if (mediaModel.getTitle() != null && mediaModel.getTitle().contains("-")) {
-            String[] parts = mediaModel.getTitle().split("-", 2);
-            artistText = parts[0].trim();
-            songText = parts[1].trim();
-        } else {
-            artistText = mediaModel.getTitle() != null ? mediaModel.getTitle() : "";
-            songText = "";
-        }
+        String artistText = mediaModel.getClass().getSimpleName().equals("AudioModel") ?
+                ((musicsearch.models.impl.AudioModel) mediaModel).getArtist() : "Unknown Artist";
+        String songText = mediaModel.getClass().getSimpleName().equals("AudioModel") ?
+                ((musicsearch.models.impl.AudioModel) mediaModel).getTitle() : mediaModel.getTitle();
 
         Label Artist = new Label(truncateText(artistText, 30));
         Label Song = new Label(truncateText(songText, 30));
         Artist.setStyle("-fx-text-fill: #D6D6E3;");
         Song.setStyle("-fx-text-fill: #D6D6E3;");
 
-        Label durationLabel = new Label(mediaModel.getTime());
-        durationLabel.setStyle("-fx-text-fill: #9EA3B5; -fx-font-size: 10px;");
+        if(mediaModel.getMediaType() != null && mediaModel.getMediaType().equals(musicsearch.models.MediaType.AUDIO)) {
+            Label durationLabel = new Label(((musicsearch.models.impl.AudioModel) mediaModel).getTime());
+            durationLabel.setStyle("-fx-text-fill: #9EA3B5; -fx-font-size: 10px;");
+            this.getChildren().addAll(imageView, Artist, Song, durationLabel);
+        } else {
+            this.getChildren().addAll(imageView, Artist, Song);
+        }
 
-        this.getChildren().addAll(imageView, Artist, Song, durationLabel);
     }
 
     private void setPlaceholderImage() {
@@ -230,7 +228,7 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
             if (coverUrl != null) {
                 loadImageFromUrl(coverUrl);
             } else {
-                if (mediaModel.getImageUrl() != null && !mediaModel.getImageUrl().isEmpty()) {
+                if (mediaModel.getPreviewUrl() != null && !mediaModel.getPreviewUrl().isEmpty()) {
                     loadRemoteCover();
                 } else {
                     setPlaceholderImage();
@@ -240,7 +238,7 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
 
         coverTask.setOnFailed(event -> {
             System.err.println("Failed to extract cover: " + coverTask.getException().getMessage());
-            if (mediaModel.getImageUrl() != null && !mediaModel.getImageUrl().isEmpty()) {
+            if (mediaModel.getPreviewUrl() != null && !mediaModel.getPreviewUrl().isEmpty()) {
                 loadRemoteCover();
             } else {
                 setPlaceholderImage();
@@ -251,7 +249,7 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
     }
 
     private void loadRemoteCover() {
-        String imageUrl = mediaModel.getImageUrl();
+        String imageUrl = mediaModel.getPreviewUrl();
         if (imageUrl == null || imageUrl.isEmpty()) {
             setPlaceholderImage();
             return;

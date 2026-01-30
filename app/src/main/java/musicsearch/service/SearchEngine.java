@@ -30,7 +30,9 @@ import java.util.concurrent.Executors;
 import musicsearch.models.CurrentTrackListener;
 import musicsearch.models.DataUpdateListener;
 import musicsearch.models.MediaModel;
+import musicsearch.models.MediaType;
 import musicsearch.models.PlaybackListener;
+import musicsearch.models.impl.AudioModel;
 import musicsearch.service.Events.ArtistSearchEvent;
 import musicsearch.widgets.MediaWidget;
 
@@ -98,7 +100,7 @@ public class SearchEngine {
                     if(LocalFiles.stream().anyMatch(m -> m.getTitle().equals(artist + " - " + title))) {
                         isDownloaded = true;
                     }
-                    MediaModel model = new MediaModel(artist + " - " + title, time, downloadUrl, imageUrl, isDownloaded);
+                    MediaModel model = new AudioModel(artist, title, time, downloadUrl, imageUrl, isDownloaded, MediaType.AUDIO);
                     newModels.add(model);
                 }
 
@@ -154,11 +156,29 @@ public class SearchEngine {
                 try {
                     AudioFile audioFile = AudioFileIO.read(file);
                     Tag tag = audioFile.getTag();
-                    String artist = tag.getFirst(FieldKey.ARTIST);
-                    String title = tag.getFirst(FieldKey.TITLE);
+                    String artist = tag != null ? tag.getFirst(FieldKey.ARTIST) : "";
+                    String title  = tag != null ? tag.getFirst(FieldKey.TITLE)  : "";
+                    if (artist == null || artist.isBlank()) {
+                        // попробуем вытащить из имени файла
+                        String fileName = file.getName().replaceFirst("\\.[^.]+$", ""); // без расширения
+                        if (fileName.contains(" - ")) {
+                            artist = fileName.split(" - ", 2)[0].trim();
+                            if (title == null || title.isBlank()) {
+                                title = fileName.split(" - ", 2)[1].trim();
+                            }
+                        } else {
+                            artist = "Unknown artist";
+                            if (title == null || title.isBlank()) {
+                                title = fileName;
+                            }
+                        }
+                    }
+                    if (title == null || title.isBlank()) {
+                        title = "Unknown title";
+                    }
                     String duration = String.valueOf(audioFile.getAudioHeader().getTrackLength() / 60) + ":" +
-                            String.format("%02d", audioFile.getAudioHeader().getTrackLength() % 60);
-                    MediaModel model = new MediaModel(artist + " - " + title, duration, file.toURI().toString(), "", true);
+                    String.format("%02d", audioFile.getAudioHeader().getTrackLength() % 60);
+                    AudioModel model = new AudioModel(artist, title, duration, file.toURI().toString(), "", true, MediaType.AUDIO);
                     homeModels.add(model);
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -200,7 +220,7 @@ public class SearchEngine {
                         if(LocalFiles.stream().anyMatch(m -> m.getTitle().equals(artist + " - " + title))) {
                             isDownloaded = true;
                         }
-                        MediaModel model = new MediaModel(artist + " - " + title, time, downloadUrl, imageUrl, isDownloaded);
+                        MediaModel model = new AudioModel(artist, title, time, downloadUrl, imageUrl, isDownloaded, MediaType.AUDIO);
                         newModels.add(model);
                     }
 
@@ -215,6 +235,29 @@ public class SearchEngine {
                     e.printStackTrace();
                 }
             });
+        }
+    }
+
+    public void scanAudioFolder() {
+        LocalFiles.clear();
+        File musicDir = new File(System.getProperty("user.home"), "Music");
+        File[] files = musicDir.listFiles((dir, name) -> name.endsWith(".mp3") || name.endsWith(".flac"));
+        if (files != null) {
+            for (File file : files) {
+                try {
+                    AudioFile audioFile = AudioFileIO.read(file);
+                    Tag tag = audioFile.getTag();
+                    String artist = tag.getFirst(FieldKey.ARTIST);
+                    String title = tag.getFirst(FieldKey.TITLE);
+                    String duration = String.valueOf(audioFile.getAudioHeader().getTrackLength() / 60) + ":" +
+                            String.format("%02d", audioFile.getAudioHeader().getTrackLength() % 60);
+                    MediaModel model = new AudioModel(artist , title, duration, file.toURI().toString(), "", true, MediaType.AUDIO);
+                    LocalFiles.add(model);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            results.setAll(LocalFiles);
         }
     }
 

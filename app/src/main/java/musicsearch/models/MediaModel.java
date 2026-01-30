@@ -3,23 +3,24 @@ package musicsearch.models;
 import lombok.Getter;
 
 @Getter
-public class MediaModel {
+// TODO : Extend this class for specific media types like AudioModel, VideoModel, etc.
+public abstract class MediaModel {
     private String title;
-    private String time;
     private String url;
-    private String imageUrl;
+    private String previewUrl;
     private boolean isDownloaded;
+    protected MediaType mediaType;
 
-    public MediaModel(String title, String time, String url, String imageUrl, boolean isDownloaded ){
+    public MediaModel(String title, String url, String previewUrl, boolean isDownloaded, MediaType mediaType) {
         this.title = title;
-        this.time = time;
         this.url = url;
-        this.imageUrl = imageUrl;
+        this.previewUrl = previewUrl;
         this.isDownloaded = isDownloaded;
+        this.mediaType = mediaType;
     }
 
     public String toString(){
-        return title + " | " + time;
+        return title;
     }
 
     public void setDownloaded(boolean downloaded) {
