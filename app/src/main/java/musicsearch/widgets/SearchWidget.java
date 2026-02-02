@@ -1,5 +1,7 @@
 package musicsearch.widgets;
 
+import java.io.File;
+
 import javafx.collections.FXCollections;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -44,6 +46,8 @@ public class SearchWidget {
         MediaTypeComboBox.valueProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal == MediaFilter.AUDIO) {
                 searchEngine.scanAudioFolder();
+            } else if (newVal == MediaFilter.VIDEO) {
+                searchEngine.scanVideoFolder();
             }
         });
         
@@ -72,7 +76,13 @@ public class SearchWidget {
         
         homeButton.setOnAction(event -> {
             this.searchField.clear();
-            this.searchEngine.goHome();
+            if( MediaTypeComboBox.getValue() == MediaFilter.AUDIO){
+                this.searchEngine.scanAudioFolder();
+            } else if (MediaTypeComboBox.getValue() == MediaFilter.VIDEO){
+                this.searchEngine.scanVideoFolder();
+            } else {
+                this.searchEngine.goHome(new File(System.getProperty("user.home"), "Music"));
+            }
         });
         homeButton.setStyle(
             background() +

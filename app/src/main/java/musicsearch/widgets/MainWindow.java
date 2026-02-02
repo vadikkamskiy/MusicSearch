@@ -2,10 +2,10 @@ package musicsearch.widgets;
 
 import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
+
 import java.util.List;
 
 import javafx.application.Platform;
@@ -22,7 +22,6 @@ import musicsearch.models.PlaybackListener;
 
 public class MainWindow {
     private Scene scene;
-    private final ComboBox<String> MediaTypeComboBox = new ComboBox<>();
     private BorderPane root;
     private AudioPlayer audioPlayer;
     private SearchEngine searchEngine;
@@ -117,7 +116,7 @@ public class MainWindow {
 
         audioPlayer.addCurrentTrackListener(widgetTracker);
 
-        searchEngine.goHome();
+        searchEngine.scanAllFiles();
     }
 
     public void shutdown() {

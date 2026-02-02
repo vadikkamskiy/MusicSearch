@@ -1,9 +1,10 @@
 package musicsearch.models;
 
+import java.util.Optional;
+
 import lombok.Getter;
 
 @Getter
-// TODO : Extend this class for specific media types like AudioModel, VideoModel, etc.
 public abstract class MediaModel {
     private String title;
     private String url;
@@ -17,6 +18,10 @@ public abstract class MediaModel {
         this.previewUrl = previewUrl;
         this.isDownloaded = isDownloaded;
         this.mediaType = mediaType;
+    }
+
+    public Optional<String> getSearchArtist() {
+        return Optional.empty();
     }
 
     public String toString(){

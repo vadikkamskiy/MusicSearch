@@ -1,6 +1,9 @@
 package musicsearch.models.impl;
 
 import musicsearch.models.MediaType;
+
+import java.util.Optional;
+
 import lombok.Getter;
 import musicsearch.models.MediaModel;
 
@@ -15,6 +18,11 @@ public class AudioModel extends MediaModel {
         this.artist = artist;
         this.title = title;
         this.time = time;
+    }
+
+    @Override
+    public Optional<String> getSearchArtist() {
+        return Optional.ofNullable(artist);
     }
 
     @Override

@@ -329,10 +329,7 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
             MenuItem deleteItem = new MenuItem("Delete");
             deleteItem.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
 
-            MenuItem findArtist = new MenuItem("Find Artist");
-            findArtist.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
-
-            contextMenu.getItems().addAll(playItem, deleteItem, findArtist);
+            contextMenu.getItems().addAll(playItem, deleteItem);
 
             deleteItem.setOnAction(e -> {
                 String filePath = mediaModel.getUrl();
@@ -361,50 +358,48 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
                     }
                 }
             });
+            Optional<String> artistOpt = mediaModel.getSearchArtist();
+            if (artistOpt.isPresent()) {
+                MenuItem findArtist = new MenuItem("Find Artist");
+                findArtist.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
+                findArtist.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
+                findArtist.setOnAction(e -> {
+                        List<String> artists = checkArtist(artistOpt.get());
+                        if (artists.size() == 1) {
+                            EventBus.publish(new ArtistSearchEvent(artists.get(0)));
+                        } else {
+                            showCustomArtistDialog(artists);
+                        }
+                });
 
-            findArtist.setOnAction(e -> {
-
-                String artist = "";
-                if (mediaModel.getTitle() != null && mediaModel.getTitle().contains("-")) {
-                    artist = mediaModel.getTitle().split("-", 2)[0].trim();
-                } else {
-                    artist = mediaModel.getTitle();
-                }
-
-                List<String> artists = checkArtist(artist);
-                if (artists.size() == 1) {
-                    EventBus.publish(new ArtistSearchEvent(artists.get(0)));
-                } else {
-                    showCustomArtistDialog(artists);
-                }
-            });
+                contextMenu.getItems().add(findArtist);
+        }
         } else {
             MenuItem downloadItem = new MenuItem("Download");
             downloadItem.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
-
-            MenuItem findArtist = new MenuItem("Find Artist");
-            findArtist.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
-
-            contextMenu.getItems().addAll(playItem, downloadItem, findArtist);
+            contextMenu.getItems().addAll(playItem, downloadItem);
 
             downloadItem.setOnAction(e -> {
                 EventBus.publish(new TrackDownloadEvent(mediaModel));
             });
 
-            findArtist.setOnAction(e -> {
-                String artist = "";
-                if (mediaModel.getTitle() != null && mediaModel.getTitle().contains("-")) {
-                    artist = mediaModel.getTitle().split("-", 2)[0].trim();
-                } else {
-                    artist = mediaModel.getTitle();
-                }
-                List<String> artists = checkArtist(artist);
-                if (artists.size() == 1) {
-                    EventBus.publish(new ArtistSearchEvent(artists.get(0)));
-                } else {
-                    showCustomArtistDialog(artists);
-                }
-            });
+            Optional<String> artistOpt = mediaModel.getSearchArtist();
+
+            if (artistOpt.isPresent()) {
+                MenuItem findArtist = new MenuItem("Find Artist");
+                findArtist.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
+                findArtist.setOnAction(e -> {
+                    List<String> artists = checkArtist(artistOpt.get());
+
+                    if (artists.size() == 1) {
+                        EventBus.publish(new ArtistSearchEvent(artists.get(0)));
+                    } else {
+                        showCustomArtistDialog(artists);
+                    }
+                });
+
+                contextMenu.getItems().add(findArtist);
+            }
         }
 
         return contextMenu;
