@@ -11,6 +11,7 @@ import java.util.Optional;
 import java.util.concurrent.*;
 
 import javafx.application.Platform;
+import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -156,7 +157,7 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
                 String raw = mediaModel.getUrl();
                 if (raw == null || raw.isEmpty()) {
                     Platform.runLater(() -> {
-                        if (mediaModel.getImageUrl() != null && !mediaModel.getImageUrl().isEmpty()) {
+                        if (mediaModel.getPreviewUrl() != null && !mediaModel.getPreviewUrl().isEmpty()) {
                             loadRemoteCover();
                         } else {
                             setPlaceholderImage();
@@ -194,7 +195,7 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
                 if (!file.exists() || !file.canRead()) {
                     System.err.println("DEBUG: local file missing or unreadable: " + fsPath);
                     Platform.runLater(() -> {
-                        if (mediaModel.getImageUrl() != null && !mediaModel.getImageUrl().isEmpty()) loadRemoteCover();
+                        if (mediaModel.getPreviewUrl() != null && !mediaModel.getPreviewUrl().isEmpty()) loadRemoteCover();
                         else setPlaceholderImage();
                     });
                     return;
@@ -218,7 +219,7 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
                                     imageLoaded = true;
                                 } else {
                                     System.err.println("DEBUG: image reported error after loading from coverFile");
-                                    if (mediaModel.getImageUrl() != null && !mediaModel.getImageUrl().isEmpty()) loadRemoteCover();
+                                    if (mediaModel.getPreviewUrl() != null && !mediaModel.getPreviewUrl().isEmpty()) loadRemoteCover();
                                     else setPlaceholderImage();
                                 }
                             });
@@ -232,7 +233,7 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
                 }
 
                 // fallback: если mediaModel содержит внешнюю imageUrl — пробуем её
-                if (mediaModel.getImageUrl() != null && !mediaModel.getImageUrl().isEmpty()) {
+                if (mediaModel.getPreviewUrl() != null && !mediaModel.getPreviewUrl().isEmpty()) {
                     Platform.runLater(this::loadRemoteCover);
                 } else {
                     Platform.runLater(this::setPlaceholderImage);
@@ -242,7 +243,7 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
                 System.err.println("Error in loadLocalCover: " + t.getMessage());
                 t.printStackTrace();
                 Platform.runLater(() -> {
-                    if (mediaModel.getImageUrl() != null && !mediaModel.getImageUrl().isEmpty()) loadRemoteCover();
+                    if (mediaModel.getPreviewUrl() != null && !mediaModel.getPreviewUrl().isEmpty()) loadRemoteCover();
                     else setPlaceholderImage();
                 });
             }
@@ -322,65 +323,65 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
         }
     }
 
-    private void loadLocalCover() {
-        Task<String> coverTask = new Task<String>() {
-            @Override
-            protected String call() throws Exception {
-                String filePath = mediaModel.getUrl();
+    // private void loadLocalCover() {
+    //     Task<String> coverTask = new Task<String>() {
+    //         @Override
+    //         protected String call() throws Exception {
+    //             String filePath = mediaModel.getUrl();
 
-                if (filePath != null) {
-                    if (filePath.startsWith("file:\\")) {
-                        filePath = filePath.substring(6);
-                    } else if (filePath.startsWith("file:")) {
-                        filePath = filePath.substring(5);
-                    }
+    //             if (filePath != null) {
+    //                 if (filePath.startsWith("file:\\")) {
+    //                     filePath = filePath.substring(6);
+    //                 } else if (filePath.startsWith("file:")) {
+    //                     filePath = filePath.substring(5);
+    //                 }
 
-                    try {
-                        filePath = java.net.URLDecoder.decode(filePath, "UTF-8");
-                    } catch (Exception e) {
-                        // ignore
-                    }
-                }
+    //                 try {
+    //                     filePath = java.net.URLDecoder.decode(filePath, "UTF-8");
+    //                 } catch (Exception e) {
+    //                     // ignore
+    //                 }
+    //             }
 
-                File file = new File(filePath);
-                if (!file.exists()) {
-                    System.err.println("File does not exist: " + filePath);
-                    return null;
-                }
+    //             File file = new File(filePath);
+    //             if (!file.exists()) {
+    //                 System.err.println("File does not exist: " + filePath);
+    //                 return null;
+    //             }
 
-                if (!file.canRead()) {
-                    System.err.println("Cannot read file: " + filePath);
-                    return null;
-                }
+    //             if (!file.canRead()) {
+    //                 System.err.println("Cannot read file: " + filePath);
+    //                 return null;
+    //             }
 
-                return MP3CoverExtractor.extractCoverFromMP3(filePath);
-            }
-        };
+    //             return MP3CoverExtractor.extractCoverFromMP3(filePath);
+    //         }
+    //     };
 
-        coverTask.setOnSucceeded(event -> {
-            String coverUrl = coverTask.getValue();
-            if (coverUrl != null) {
-                loadImageFromUrl(coverUrl);
-            } else {
-                if (mediaModel.getPreviewUrl() != null && !mediaModel.getPreviewUrl().isEmpty()) {
-                    loadRemoteCover();
-                } else {
-                    setPlaceholderImage();
-                }
-            }
-        });
+    //     coverTask.setOnSucceeded(event -> {
+    //         String coverUrl = coverTask.getValue();
+    //         if (coverUrl != null) {
+    //             loadImageFromUrl(coverUrl);
+    //         } else {
+    //             if (mediaModel.getPreviewUrl() != null && !mediaModel.getPreviewUrl().isEmpty()) {
+    //                 loadRemoteCover();
+    //             } else {
+    //                 setPlaceholderImage();
+    //             }
+    //         }
+    //     });
 
-        coverTask.setOnFailed(event -> {
-            System.err.println("Failed to extract cover: " + coverTask.getException().getMessage());
-            if (mediaModel.getPreviewUrl() != null && !mediaModel.getPreviewUrl().isEmpty()) {
-                loadRemoteCover();
-            } else {
-                setPlaceholderImage();
-            }
-        });
+    //     coverTask.setOnFailed(event -> {
+    //         System.err.println("Failed to extract cover: " + coverTask.getException().getMessage());
+    //         if (mediaModel.getPreviewUrl() != null && !mediaModel.getPreviewUrl().isEmpty()) {
+    //             loadRemoteCover();
+    //         } else {
+    //             setPlaceholderImage();
+    //         }
+    //     });
 
-        new Thread(coverTask).start();
-    }
+    //     new Thread(coverTask).start();
+    // }
 
     private void loadRemoteCover() {
         String imageUrl = mediaModel.getPreviewUrl();
@@ -465,16 +466,18 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
             }
         });
 
-        contextMenu.getItems().add(playItem);
+        findLyricsItem.setOnAction(e -> {
+            EventBus.publish(new LyricSearchEvent(mediaModel.toString()));
+        });
 
         if (isDownloaded) {
             MenuItem deleteItem = new MenuItem("Delete");
             deleteItem.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
 
-            contextMenu.getItems().addAll(playItem, deleteItem);
+            contextMenu.getItems().addAll(playItem, deleteItem, findLyricsItem);
 
             findLyricsItem.setOnAction(e -> {
-                EventBus.publish(new LyricSearchEvent(mediaModel.getTitle()));
+                EventBus.publish(new LyricSearchEvent(mediaModel.toString()));
             });
             deleteItem.setOnAction(e -> {
                 String filePath = mediaModel.getUrl();
@@ -510,42 +513,11 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
                 contextMenu.getItems().add(findArtist);
         }
         } else {
-            MenuItem downloadItem = new MenuItem("Download");
-            downloadItem.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
-            contextMenu.getItems().addAll(playItem, downloadItem);
-            findArtist.setOnAction(e -> handleFindArtist());
-            MenuItem findLyricsItem = new MenuItem("Find lyrics");
-            findLyricsItem.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
-
-            contextMenu.getItems().add(findLyricsItem);
-            findLyricsItem.setOnAction(e -> EventBus.publish(new LyricSearchEvent(mediaModel.getTitle())));
-        } else {
-            MenuItem downloadItem = new MenuItem("Download");
-            downloadItem.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
-
-            MenuItem findArtistItem = new MenuItem("Find Artist");
-            findArtistItem.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
-
-
-            contextMenu.getItems().addAll(playItem, downloadItem, findArtistItem, findLyricsItem);
-
-            contextMenu.getItems().addAll(downloadItem, findArtist,findLyrics);
-
             Optional<String> artistOpt = mediaModel.getSearchArtist();
-
             if (artistOpt.isPresent()) {
                 MenuItem findArtist = new MenuItem("Find Artist");
                 findArtist.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
-                findArtist.setOnAction(e -> {
-                    List<String> artists = checkArtist(artistOpt.get());
-
-                    if (artists.size() == 1) {
-                        EventBus.publish(new ArtistSearchEvent(artists.get(0)));
-                    } else {
-                        showCustomArtistDialog(artists);
-                    }
-                });
-
+                findArtist.setOnAction(e -> handleFindArtist());
                 contextMenu.getItems().add(findArtist);
             }
         }
@@ -554,18 +526,14 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
     }
 
     private void handleFindArtist() {
-        String artist = "";
-        if (mediaModel.getTitle() != null && mediaModel.getTitle().contains("-")) {
-            artist = mediaModel.getTitle().split("-", 2)[0].trim();
-        } else {
-            artist = mediaModel.getTitle();
-        }
-        List<String> artists = checkArtist(artist);
-        if (artists.size() == 1) {
-            EventBus.publish(new ArtistSearchEvent(artists.get(0)));
-        } else {
-            showCustomArtistDialog(artists);
-        }
+        mediaModel.getSearchArtist().ifPresent(artist -> {
+            List<String> artists = checkArtist(artist);
+            if (artists.size() == 1) {
+                EventBus.publish(new ArtistSearchEvent(artists.get(0)));
+            } else {
+                showCustomArtistDialog(artists);
+            }
+        });
     }
 
     List<String> checkArtist(String artist) {
@@ -695,7 +663,7 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
             }
         });
 
-        Label infoLabel = new Label(artists.size() + " artists found in: \"" + truncateText(mediaModel.getTitle(), 40) + "\"");
+        Label infoLabel = new Label(artists.size() + " artists found in: \"" + truncateText(mediaModel.toString(), 40) + "\"");
         infoLabel.setStyle("-fx-text-fill: #9EA3B5; -fx-font-size: 12px;");
         infoLabel.setWrapText(true);
 

@@ -222,7 +222,7 @@ public class AudioPlayer extends HBox {
     public void playTrack(MediaModel model) {
         if (model == null) return;
         
-        System.out.println("Playing: " + model.getTitle());
+        System.out.println("Playing: " + model.toString());
         
         if (currentModel != null && currentModel.equals(model)) {
             if (isPlaying) {
@@ -261,7 +261,7 @@ public class AudioPlayer extends HBox {
     private void setupMediaPlayerListeners() {
         mediaPlayer.setOnReady(() -> {
             Platform.runLater(() -> {
-                currentTrack.setText(currentModel.getTitle());
+                currentTrack.setText(currentModel.toString());
                 progressSlider.setValue(0);
                 if (mediaPlayer.getTotalDuration().greaterThan(Duration.ZERO)) {
                     timeLabel.setText("00:00 / " + formatTime(mediaPlayer.getTotalDuration().toSeconds()));
@@ -298,7 +298,7 @@ public class AudioPlayer extends HBox {
             Platform.runLater(() -> {
                 System.err.println("Media error: " + mediaPlayer.getError());
                 isPlaying = false;
-                currentTrack.setText("Error playing: " + currentModel.getTitle());
+                currentTrack.setText("Error playing: " + currentModel.toString());
                 updateUI();
             });
         });
@@ -383,7 +383,7 @@ public class AudioPlayer extends HBox {
 
     private void downloadCurrentTrack() {
         if (currentModel != null && fileEngine != null) {
-            System.out.println("Downloading: " + currentModel.getTitle());
+            System.out.println("Downloading: " + currentModel.toString());
             fileEngine.downloadMedia(currentModel);
         }
     }
