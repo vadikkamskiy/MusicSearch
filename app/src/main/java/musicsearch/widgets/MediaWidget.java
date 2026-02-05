@@ -13,27 +13,14 @@ import java.util.concurrent.*;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
-import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.ButtonBar;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.ContextMenu;
-import javafx.scene.control.Dialog;
-import javafx.scene.control.DialogPane;
-import javafx.scene.control.Label;
-import javafx.scene.control.ListCell;
-import javafx.scene.control.ListView;
-import javafx.scene.control.MenuItem;
-import javafx.scene.control.ScrollPane;
+import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.image.WritableImage;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.VBox;
-import javafx.scene.text.Text;
-import javafx.scene.text.TextFlow;
-import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.scene.layout.StackPane;
 import musicsearch.models.DataUpdateListener;
 import musicsearch.models.MediaModel;
 import musicsearch.models.PlaybackListener;
@@ -61,6 +48,7 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
     private boolean imageLoaded = false;
     private boolean isCurrentTrack = false;
     private boolean isDownloaded;
+    private Label downloadedIndicatorLabel;
     private ContextMenu contextMenu;
     private final DataUpdateListener dataUpdateListener;
 
@@ -452,10 +440,6 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
 
         MenuItem playItem = new MenuItem("Play");
         playItem.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
-
-        MenuItem findLyricsItem = new MenuItem("Find lyrics");
-        findLyricsItem.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
-
         playItem.setOnAction(e -> {
             if (playbackListener != null) {
                 if (parentPlaylist != null && !parentPlaylist.isEmpty() && thisIndex >= 0) {
@@ -492,6 +476,7 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
                         System.out.println("Deleted file: " + file.getAbsolutePath());
                         isDownloaded = false;
                         mediaModel.setDownloaded(false);
+                        updateDownloadedIndicator();
                         if (dataUpdateListener != null) dataUpdateListener.onDataChanged();
                     }
                 }
@@ -571,44 +556,6 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
         name = name.replaceAll("\\[[^]]*\\]", "").trim();
         name = name.replaceAll("^[,\\s]+|[,\\s]+$", "");
         return name;
-    }
-
-    public void showLyricsWindow(String lyrics) {
-        Stage lyricsStage = new Stage();
-        lyricsStage.setTitle("Текст песни");
-        lyricsStage.initModality(Modality.APPLICATION_MODAL);
-        
-        TextFlow textFlow = new TextFlow();
-        textFlow.setPadding(new Insets(15));
-        textFlow.setStyle("-fx-background-color: white;");
-        
-        // Разбиваем текст на строки и создаем Text элементы
-        String[] lines = lyrics.split("\n");
-        for (String line : lines) {
-            Text text = new Text(line + "\n");
-            
-            // Стилизация для разных частей песни
-            if (line.matches("\\[.*\\]")) { // [Verse], [Chorus] и т.д.
-                text.setStyle("-fx-font-weight: bold; -fx-fill: #c0392b; -fx-font-size: 14px;");
-            } else if (!line.trim().isEmpty()) {
-                text.setStyle("-fx-fill: #2c3e50; -fx-font-size: 13px;");
-            }
-            
-            textFlow.getChildren().add(text);
-        }
-        
-        ScrollPane scrollPane = new ScrollPane(textFlow);
-        scrollPane.setFitToWidth(true);
-        
-        Button closeButton = new Button("Закрыть");
-        closeButton.setOnAction(e -> lyricsStage.close());
-        
-        VBox layout = new VBox(10, scrollPane, closeButton);
-        layout.setPadding(new Insets(10));
-        
-        Scene scene = new Scene(layout, 500, 600);
-        lyricsStage.setScene(scene);
-        lyricsStage.showAndWait();
     }
 
     private void showCustomArtistDialog(List<String> artists) {
@@ -697,6 +644,12 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
 
     public MediaModel getModel() {
         return mediaModel;
+    }
+
+    private void updateDownloadedIndicator() {
+        if (downloadedIndicatorLabel != null) {
+            downloadedIndicatorLabel.setVisible(isDownloaded);
+        }
     }
 
     private static final String NORMAL_STYLE =

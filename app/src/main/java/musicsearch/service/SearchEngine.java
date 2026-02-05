@@ -1,5 +1,10 @@
 package musicsearch.service;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import ch.qos.logback.core.model.Model;
+
 import org.jaudiotagger.audio.AudioFile;
 import org.jaudiotagger.audio.AudioFileIO;
 import org.jaudiotagger.tag.FieldKey;
@@ -14,6 +19,12 @@ import javafx.collections.FXCollections;
 import javafx.scene.layout.GridPane;
 import javafx.stage.Stage;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -53,21 +64,14 @@ public class SearchEngine {
     public SearchEngine(GridPane mediaLayout) {
         this.mediaLayout = mediaLayout;
         results.addListener((Observable obs) -> updateMediaLayout());
-        initializeEventListeners();
+        searchEventListener();
     }
 
     public SearchEngine(GridPane mediaLayout, PlaybackListener playbackListener) {
         this.mediaLayout = mediaLayout;
         this.playbackListener = playbackListener;
         results.addListener((Observable obs) -> updateMediaLayout());
-        initializeEventListeners();
-    }
-
-    private void initializeEventListeners() {
-        EventBus.subscribe(ArtistSearchEvent.class, event -> {
-            search(event.artist);
-        });
-        EventBus.subscribe(LyricSearchEvent.class, this::handleLyricSearch);
+        searchEventListener();
     }
 
     public void setPlaybackListener(PlaybackListener playbackListener) {
@@ -108,7 +112,7 @@ public class SearchEngine {
             mediaLayout.add(widget, column, row);
         }
     }
-
+    
     public void shutdown() {
         executor.shutdown();
     }
@@ -122,7 +126,6 @@ public class SearchEngine {
         File homeDir = new File(System.getProperty("user.home"), "Music");
         File[] files = homeDir.listFiles((dir, name) -> name.endsWith(".mp3") || name.endsWith(".flac"));
         if (files != null) {
-            List<MediaModel> homeModels = new ArrayList<>();
             for (File file : files) {
                 try {
                     AudioFile audioFile = AudioFileIO.read(file);
@@ -155,7 +158,7 @@ public class SearchEngine {
                     e.printStackTrace();
                 }
             }
-            results.setAll(homeModels);
+            results.setAll(LocalFiles);
         }
     }
 

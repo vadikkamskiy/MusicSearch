@@ -24,7 +24,6 @@ public class LyricsWindow {
         stage.initOwner(owner);
         stage.initModality(Modality.WINDOW_MODAL);
 
-        // Заголовок
         Label titleLabel = new Label(title);
         titleLabel.setStyle(
                 "-fx-text-fill: #af7aff;" +
@@ -34,12 +33,10 @@ public class LyricsWindow {
         );
         titleLabel.setPadding(new Insets(0, 0, 20, 0));
 
-        // Создаем TextFlow для отображения текста с центрированием
         TextFlow textFlow = new TextFlow();
         textFlow.setTextAlignment(TextAlignment.CENTER);
         textFlow.setLineSpacing(8);
         
-        // Разбиваем текст на строки
         String[] lines = text.split("\n");
         for (String line : lines) {
             Text textNode = new Text(line + "\n");
@@ -63,7 +60,6 @@ public class LyricsWindow {
                 "-fx-background-radius: 8px;"
         );
 
-        // Основной контейнер
         VBox container = new VBox(10, titleLabel, scrollPane);
         container.setAlignment(Pos.TOP_CENTER);
         container.setPadding(new Insets(20));
@@ -72,7 +68,6 @@ public class LyricsWindow {
                 "-fx-background-radius: 8px;"
         );
 
-        // Root контейнер
         BorderPane root = new BorderPane(container);
         root.setPadding(new Insets(15));
         root.setStyle(
