@@ -107,26 +107,24 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
 
         setPlaceholderImage();
 
-        String artistText = "";
-        String songText = "";
-        if (mediaModel.getTitle() != null && mediaModel.getTitle().contains("-")) {
-            String[] parts = mediaModel.getTitle().split("-", 2);
-            artistText = parts[0].trim();
-            songText = parts[1].trim();
-        } else {
-            artistText = mediaModel.getTitle() != null ? mediaModel.getTitle() : "";
-            songText = "";
-        }
+        String artistText = mediaModel.getClass().getSimpleName().equals("AudioModel") ?
+                ((musicsearch.models.impl.AudioModel) mediaModel).getArtist() : "Unknown Artist";
+        String songText = mediaModel.getClass().getSimpleName().equals("AudioModel") ?
+                ((musicsearch.models.impl.AudioModel) mediaModel).getTitle() : mediaModel.getTitle();
 
         Label Artist = new Label(truncateText(artistText, 30));
         Label Song = new Label(truncateText(songText, 30));
         Artist.setStyle("-fx-text-fill: #D6D6E3;");
         Song.setStyle("-fx-text-fill: #D6D6E3;");
 
-        Label durationLabel = new Label(mediaModel.getTime());
-        durationLabel.setStyle("-fx-text-fill: #9EA3B5; -fx-font-size: 10px;");
+        if(mediaModel.getMediaType() != null && mediaModel.getMediaType().equals(musicsearch.models.MediaType.AUDIO)) {
+            Label durationLabel = new Label(((musicsearch.models.impl.AudioModel) mediaModel).getTime());
+            durationLabel.setStyle("-fx-text-fill: #9EA3B5; -fx-font-size: 10px;");
+            this.getChildren().addAll(imageView, Artist, Song, durationLabel);
+        } else {
+            this.getChildren().addAll(imageView, Artist, Song);
+        }
 
-        this.getChildren().addAll(imageView, Artist, Song, durationLabel);
     }
 
     private void setPlaceholderImage() {
@@ -324,8 +322,68 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
         }
     }
 
+    private void loadLocalCover() {
+        Task<String> coverTask = new Task<String>() {
+            @Override
+            protected String call() throws Exception {
+                String filePath = mediaModel.getUrl();
+
+                if (filePath != null) {
+                    if (filePath.startsWith("file:\\")) {
+                        filePath = filePath.substring(6);
+                    } else if (filePath.startsWith("file:")) {
+                        filePath = filePath.substring(5);
+                    }
+
+                    try {
+                        filePath = java.net.URLDecoder.decode(filePath, "UTF-8");
+                    } catch (Exception e) {
+                        // ignore
+                    }
+                }
+
+                File file = new File(filePath);
+                if (!file.exists()) {
+                    System.err.println("File does not exist: " + filePath);
+                    return null;
+                }
+
+                if (!file.canRead()) {
+                    System.err.println("Cannot read file: " + filePath);
+                    return null;
+                }
+
+                return MP3CoverExtractor.extractCoverFromMP3(filePath);
+            }
+        };
+
+        coverTask.setOnSucceeded(event -> {
+            String coverUrl = coverTask.getValue();
+            if (coverUrl != null) {
+                loadImageFromUrl(coverUrl);
+            } else {
+                if (mediaModel.getPreviewUrl() != null && !mediaModel.getPreviewUrl().isEmpty()) {
+                    loadRemoteCover();
+                } else {
+                    setPlaceholderImage();
+                }
+            }
+        });
+
+        coverTask.setOnFailed(event -> {
+            System.err.println("Failed to extract cover: " + coverTask.getException().getMessage());
+            if (mediaModel.getPreviewUrl() != null && !mediaModel.getPreviewUrl().isEmpty()) {
+                loadRemoteCover();
+            } else {
+                setPlaceholderImage();
+            }
+        });
+
+        new Thread(coverTask).start();
+    }
+
     private void loadRemoteCover() {
-        String imageUrl = mediaModel.getImageUrl();
+        String imageUrl = mediaModel.getPreviewUrl();
         if (imageUrl == null || imageUrl.isEmpty()) {
             Platform.runLater(this::setPlaceholderImage);
             return;
@@ -412,10 +470,8 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
         if (isDownloaded) {
             MenuItem deleteItem = new MenuItem("Delete");
             deleteItem.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
-            MenuItem findArtist = new MenuItem("Find Artist");
-            findArtist.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
 
-            contextMenu.getItems().addAll(playItem, deleteItem, findArtist, findLyricsItem);
+            contextMenu.getItems().addAll(playItem, deleteItem);
 
             findLyricsItem.setOnAction(e -> {
                 EventBus.publish(new LyricSearchEvent(mediaModel.getTitle()));
@@ -437,7 +493,26 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
                     }
                 }
             });
+            Optional<String> artistOpt = mediaModel.getSearchArtist();
+            if (artistOpt.isPresent()) {
+                MenuItem findArtist = new MenuItem("Find Artist");
+                findArtist.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
+                findArtist.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
+                findArtist.setOnAction(e -> {
+                        List<String> artists = checkArtist(artistOpt.get());
+                        if (artists.size() == 1) {
+                            EventBus.publish(new ArtistSearchEvent(artists.get(0)));
+                        } else {
+                            showCustomArtistDialog(artists);
+                        }
+                });
 
+                contextMenu.getItems().add(findArtist);
+        }
+        } else {
+            MenuItem downloadItem = new MenuItem("Download");
+            downloadItem.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
+            contextMenu.getItems().addAll(playItem, downloadItem);
             findArtist.setOnAction(e -> handleFindArtist());
             MenuItem findLyricsItem = new MenuItem("Find lyrics");
             findLyricsItem.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
@@ -456,23 +531,23 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
 
             contextMenu.getItems().addAll(downloadItem, findArtist,findLyrics);
 
-            findArtistItem.setOnAction(e -> {
-                String artist = "";
-                if (mediaModel.getTitle() != null && mediaModel.getTitle().contains("-")) {
-                    artist = mediaModel.getTitle().split("-", 2)[0].trim();
-                } else {
-                    artist = mediaModel.getTitle();
-                }
-                List<String> artists = checkArtist(artist);
-                if (artists.size() == 1) {
-                    EventBus.publish(new ArtistSearchEvent(artists.get(0)));
-                } else {
-                    showCustomArtistDialog(artists);
-                }
-            });
-            findLyricsItem.setOnAction( e -> {
-                EventBus.publish(new LyricSearchEvent(mediaModel.getTitle()));
-            });
+            Optional<String> artistOpt = mediaModel.getSearchArtist();
+
+            if (artistOpt.isPresent()) {
+                MenuItem findArtist = new MenuItem("Find Artist");
+                findArtist.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
+                findArtist.setOnAction(e -> {
+                    List<String> artists = checkArtist(artistOpt.get());
+
+                    if (artists.size() == 1) {
+                        EventBus.publish(new ArtistSearchEvent(artists.get(0)));
+                    } else {
+                        showCustomArtistDialog(artists);
+                    }
+                });
+
+                contextMenu.getItems().add(findArtist);
+            }
         }
 
         return contextMenu;
