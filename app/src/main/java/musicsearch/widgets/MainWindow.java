@@ -80,6 +80,7 @@ public class MainWindow {
         this.searchEngine.setPlaybackListener(playbackListener);
 
         SearchWidget searchWidget = new SearchWidget(searchEngine);
+        audioPlayer.setSearchWidget(searchWidget);
 
         setupGlobalEventListeners();
         scrollPane.setFitToWidth(true);
