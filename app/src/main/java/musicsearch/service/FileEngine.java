@@ -49,7 +49,7 @@ public class FileEngine {
         }
         fileChooser.setInitialDirectory(musicDir);
         
-        String cleanFileName = cleanFileName(mediaModel.getTitle()) + ".mp3";
+        String cleanFileName = cleanFileName(mediaModel.toString()) + ".mp3";
         fileChooser.setInitialFileName(cleanFileName);
         fileChooser.getExtensionFilters().add(
             new FileChooser.ExtensionFilter("MP3 files", "*.mp3")

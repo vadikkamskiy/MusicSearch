@@ -11,7 +11,6 @@ import org.jaudiotagger.tag.FieldKey;
 import org.jaudiotagger.tag.Tag;
 import java.io.File;
 
-import io.github.cdimascio.dotenv.Dotenv;
 import javafx.application.Platform;
 import javafx.beans.Observable;
 import javafx.beans.property.ListProperty;
@@ -30,12 +29,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import io.github.cdimascio.dotenv.Dotenv;
 
 import musicsearch.models.CurrentTrackListener;
 import musicsearch.models.DataUpdateListener;
 import musicsearch.models.MediaModel;
+import musicsearch.models.MediaType;
 import musicsearch.models.PlaybackListener;
+import musicsearch.models.impl.AudioModel;
+import musicsearch.models.impl.VideoModel;
 import musicsearch.service.Events.ArtistSearchEvent;
+import musicsearch.service.impl.AudioSearchProvider;
 import musicsearch.service.Events.LyricSearchEvent;
 import musicsearch.widgets.MediaWidget;
 
@@ -49,10 +53,13 @@ public class SearchEngine {
     private GridPane mediaLayout;
     private PlaybackListener playbackListener;
     private final ExecutorService executor = Executors.newFixedThreadPool(3);
-    private static final Dotenv dotenv = Dotenv.load();
-    public static int searchPage = 1;
-    public static int allPage;
     public static String currentQuery = "null";
+    private static final Dotenv dotenv = Dotenv.load();
+
+    private final List<MediaSearchProvider> providers = List.of(
+            new AudioSearchProvider()
+    );
+    public static final String lyricsUrl = dotenv.get("LYRICS_SOURCE");
     
     public SearchEngine(GridPane mediaLayout) {
         this.mediaLayout = mediaLayout;
@@ -72,53 +79,16 @@ public class SearchEngine {
     }
 
     public void search(String query) {
-        currentQuery = query;
         results.clear();
+
         executor.submit(() -> {
-            try {
-                String searchUrl = "https://" +
-                    dotenv.get("URL_SOURCE") +
-                    "/search?q=" + query;
-                Document doc = Jsoup.connect(searchUrl)
-                        .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-                        .timeout(5000)
-                        .maxBodySize(0) 
-                        .get();
+            List<MediaModel> all = new ArrayList<>();
 
-                Elements tracks = doc.select("li.tracks__item.track.mustoggler");
-                Elements pages = doc.select(".pagination__item");
-                allPage = pages.size();
-                List<MediaModel> newModels = new ArrayList<>();
-
-                for (Element track : tracks) {
-                    String musmeta = track.attr("data-musmeta");
-                    if (musmeta == null || musmeta.isEmpty()) continue;
-
-                    JsonObject obj = JsonParser.parseString(musmeta).getAsJsonObject();
-                    String artist = obj.get("artist").getAsString();
-                    String title = obj.get("title").getAsString();
-                    String imageUrl = obj.get("img").getAsString();
-                    String downloadUrl = obj.get("url").getAsString();
-                    String time = track.selectFirst("div.track__fulltime") != null
-                            ? track.selectFirst("div.track__fulltime").text()
-                            : "Unknown";
-                    boolean isDownloaded = false;
-                    if(LocalFiles.stream().anyMatch(m -> m.getTitle().equals(artist + " - " + title))) {
-                        isDownloaded = true;
-                    }
-                    MediaModel model = new MediaModel(artist + " - " + title, time, downloadUrl, imageUrl, isDownloaded);
-                    newModels.add(model);
-                }
-
-                Platform.runLater(() -> {
-                    results.setAll(newModels);
-                });
-                tracks.clear();
-                doc.clearAttributes();
-
-            } catch (IOException e) {
-                e.printStackTrace();
+            for (MediaSearchProvider provider : providers) {
+                all.addAll(provider.search(query));
             }
+
+            Platform.runLater(() -> results.setAll(all));
         });
     }
 
@@ -130,7 +100,7 @@ public class SearchEngine {
             MediaWidget widget = new MediaWidget(model, playbackListener, new DataUpdateListener() {
                 @Override
                 public void onDataChanged() {
-                    goHome();
+                    goHome(new File(System.getProperty("user.home"), "Music"));
                 }
             });
             
@@ -150,7 +120,7 @@ public class SearchEngine {
     public void setCurrentTrackListener(CurrentTrackListener listener) {
         this.currentTrackListener = listener;
     }
-    public void goHome() {
+    public void goHome(File curentDir) {
         currentQuery = "null";
         results.clear();
         File homeDir = new File(System.getProperty("user.home"), "Music");
@@ -160,11 +130,57 @@ public class SearchEngine {
                 try {
                     AudioFile audioFile = AudioFileIO.read(file);
                     Tag tag = audioFile.getTag();
+                    String artist = tag != null ? tag.getFirst(FieldKey.ARTIST) : "";
+                    String title  = tag != null ? tag.getFirst(FieldKey.TITLE)  : "";
+                    if (artist == null || artist.isBlank()) {
+                        // попробуем вытащить из имени файла
+                        String fileName = file.getName().replaceFirst("\\.[^.]+$", ""); // без расширения
+                        if (fileName.contains(" - ")) {
+                            artist = fileName.split(" - ", 2)[0].trim();
+                            if (title == null || title.isBlank()) {
+                                title = fileName.split(" - ", 2)[1].trim();
+                            }
+                        } else {
+                            artist = "Unknown artist";
+                            if (title == null || title.isBlank()) {
+                                title = fileName;
+                            }
+                        }
+                    }
+                    if (title == null || title.isBlank()) {
+                        title = "Unknown title";
+                    }
+                    String duration = String.valueOf(audioFile.getAudioHeader().getTrackLength() / 60) + ":" +
+                    String.format("%02d", audioFile.getAudioHeader().getTrackLength() % 60);
+                    AudioModel model = new AudioModel(artist, title, duration, file.toURI().toString(), "", true, MediaType.AUDIO);
+                    homeModels.add(model);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            results.setAll(LocalFiles);
+        }
+    }
+
+    public void scanAllFiles() {
+        scanAudioFolder();
+        scanVideoFolder();
+    }
+
+    public void scanAudioFolder() {
+        LocalFiles.clear();
+        File musicDir = new File(System.getProperty("user.home"), "Music");
+        File[] files = musicDir.listFiles((dir, name) -> name.endsWith(".mp3") || name.endsWith(".flac"));
+        if (files != null) {
+            for (File file : files) {
+                try {
+                    AudioFile audioFile = AudioFileIO.read(file);
+                    Tag tag = audioFile.getTag();
                     String artist = tag.getFirst(FieldKey.ARTIST);
                     String title = tag.getFirst(FieldKey.TITLE);
                     String duration = String.valueOf(audioFile.getAudioHeader().getTrackLength() / 60) + ":" +
                             String.format("%02d", audioFile.getAudioHeader().getTrackLength() % 60);
-                    MediaModel model = new MediaModel(artist + " - " + title, duration, file.toURI().toString(), "", true);
+                    MediaModel model = new AudioModel(artist , title, duration, file.toURI().toString(), "", true, MediaType.AUDIO);
                     LocalFiles.add(model);
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -174,78 +190,60 @@ public class SearchEngine {
         }
     }
 
-    public void loadMoreResults() {
-        if(searchPage<allPage && !currentQuery.equals("null")){
-            executor.submit(() -> {
-                try {
-                    String searchUrl = "https://" +
-                        dotenv.get("URL_SOURCE") +
-                        "/search/start/" + 48 * searchPage + "?q=" + currentQuery;
-                    System.out.println(searchUrl);
-                    Document doc = Jsoup.connect(searchUrl)
-                            .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-                            .timeout(5000)
-                            .maxBodySize(0) 
-                            .get();
-                    System.out.println(searchUrl);
-                    Elements tracks = doc.select("li.tracks__item.track.mustoggler");
-                    List<MediaModel> newModels = new ArrayList<>();
-
-                    for (Element track : tracks) {
-                        String musmeta = track.attr("data-musmeta");
-                        if (musmeta == null || musmeta.isEmpty()) continue;
-
-                        JsonObject obj = JsonParser.parseString(musmeta).getAsJsonObject();
-                        String artist = obj.get("artist").getAsString();
-                        String title = obj.get("title").getAsString();
-                        String imageUrl = obj.get("img").getAsString();
-                        String downloadUrl = obj.get("url").getAsString();
-                        String time = track.selectFirst("div.track__fulltime") != null
-                                ? track.selectFirst("div.track__fulltime").text()
-                                : "Unknown";
-                        boolean isDownloaded = false;
-                        if(LocalFiles.stream().anyMatch(m -> m.getTitle().equals(artist + " - " + title))) {
-                            isDownloaded = true;
-                        }
-                        MediaModel model = new MediaModel(artist + " - " + title, time, downloadUrl, imageUrl, isDownloaded);
-                        newModels.add(model);
-                    }
-
-                    Platform.runLater(() -> {
-                        results.addAll(newModels);
-                    });
-                    tracks.clear();
-                    doc.clearAttributes();
-                    searchPage++;
-
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            });
-        }
-    }
-
-    public void onTrackDeleted(MediaModel media) {
-        goHome();
-    }
-
     void findLyrics(String track){
         System.out.println("Lyrics :" + track);
         lyricsFinder.searchAndShowLyrics((Stage) mediaLayout.getScene().getWindow(), track);
     }
 
-    private void searchEventListener() {
-        EventBus.subscribe(ArtistSearchEvent.class, event -> {
-            search(event.artist);
-        });
-        EventBus.subscribe(LyricSearchEvent.class, event-> {
-            findLyrics(event.track);
+    // private void searchEventListener() {
+    //     EventBus.subscribe(ArtistSearchEvent.class, event -> {
+    //         search(event.artist);
+    //     });
+    //     EventBus.subscribe(LyricSearchEvent.class, event-> {
+    //         findLyrics(event.track);
+    //     });
+    // }
+
+    public void loadMoreResults() {
+        executor.submit(() -> {
+            List<MediaModel> more = new ArrayList<>();
+
+            for (MediaSearchProvider provider : providers) {
+                more.addAll(provider.loadMore());
+            }
+
+            if (!more.isEmpty()) {
+                Platform.runLater(() -> results.addAll(more));
+            }
         });
     }
 
+    public void onTrackDeleted(MediaModel media) {
+        goHome(new File(System.getProperty("user.home"), "Music"));
+    }
 
+    public void scanVideoFolder() {
+        LocalFiles.clear();
+        File videoDir = new File(System.getProperty("user.home"), "Videos");
+        File[] files = videoDir.listFiles((dir, name) -> name.endsWith(".mp4") || name.endsWith(".mkv") || name.endsWith(".avi"));
+        if (files != null) {
+            for (File file : files) {
+                try {
+                    VideoModel model = new VideoModel(file.getName(), file.toURI().toString(), "", null, true, MediaType.VIDEO);
+                    LocalFiles.add(model);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            results.setAll(LocalFiles);
+        }
+    }
 
     public List<MediaModel> getResults() {
         return new ArrayList<>(results.get());
+    }
+
+    private void handleLyricSearch(LyricSearchEvent event) {
+        findLyrics(event.track.toString());
     }
 }

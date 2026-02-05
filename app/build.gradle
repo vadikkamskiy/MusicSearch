@@ -7,7 +7,7 @@ plugins {
 }
 
 group = 'musicsearch'
-version = '1.0.0'
+version = '1.1.25'
 mainClassName = 'musicsearch.App'
 
 javafx {

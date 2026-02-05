@@ -117,7 +117,7 @@ public class MainWindow {
 
         audioPlayer.addCurrentTrackListener(widgetTracker);
 
-        searchEngine.goHome();
+        searchEngine.scanAllFiles();
     }
 
     public void shutdown() {
