@@ -19,6 +19,7 @@ public class SearchWidget {
     private Button searchButton;
     private Button homeButton;
     private SearchEngine searchEngine;
+    private MediaTypeListener mediaTypeListener;
     private final ComboBox<MediaFilter> MediaTypeComboBox = new ComboBox<>();
     
     public SearchWidget(SearchEngine searchEngine){
@@ -44,12 +45,17 @@ public class SearchWidget {
         });
 
         MediaTypeComboBox.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (mediaTypeListener != null) {
+                mediaTypeListener.onMediaTypeChanged(newVal);
+            }
+
             if (newVal == MediaFilter.AUDIO) {
                 searchEngine.scanAudioFolder();
             } else if (newVal == MediaFilter.VIDEO) {
                 searchEngine.scanVideoFolder();
             }
         });
+
         
         homeButton = new Button("Home");
         layout = new HBox();
@@ -94,6 +100,10 @@ public class SearchWidget {
         return layout;
     }
 
+    public void setMediaTypeListener(MediaTypeListener listener) {
+        this.mediaTypeListener = listener;
+    }
+
     public boolean getActivity(){
         return searchField.isFocused();
     }
@@ -105,6 +115,14 @@ public class SearchWidget {
             
     private static final String background() {
         return "-fx-background-color: #323848; ";
+    }
+
+    public ComboBox<MediaFilter> getMediaTypeComboBox() {
+        return MediaTypeComboBox;
+    }
+
+    public interface MediaTypeListener {
+        void onMediaTypeChanged(MediaFilter filter);
     }
 }
 

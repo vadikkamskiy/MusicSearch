@@ -32,7 +32,7 @@ public class AudioPlayer extends HBox {
     private Label timeLabel;
     private SearchWidget searchWidget;
     private Button playButton, pauseButton, stopButton, downloadButton,
-        prevButton, nextButton;
+        prevButton, nextButton, repeatButton, shuffleButton;
     private Slider volumeSlider;
     private List<MediaModel> playlist = new ArrayList<>();
     private int currentIndex = -1;
@@ -83,35 +83,74 @@ public class AudioPlayer extends HBox {
 
     public void playAt(int index) {
         if (index < 0 || index >= playlist.size()) return;
+
+        MediaModel model = playlist.get(index);
+
+        if (currentModel != null && currentModel.equals(model)) {
+            // только если повтор одной песни
+            if (repeatMode == RepeatMode.ONE) {
+                mediaPlayer.seek(Duration.ZERO);
+                mediaPlayer.play();
+            }
+            return;
+        }
+
         currentIndex = index;
-        playTrack(playlist.get(currentIndex));
+        playTrack(model);
     }
 
     public void playNext() {
         if (playlist.isEmpty()) return;
-        currentIndex++;
-        if (currentIndex >= playlist.size()) {
-            currentIndex = -1;
-            stop();
+
+        // SHUFFLE
+        if (shuffle && playlist.size() > 1) {
+            int next;
+            do {
+                next = (int) (Math.random() * playlist.size());
+            } while (next == currentIndex);
+            playAt(next);
             return;
         }
+
+        // NORMAL / REPEAT ALL
+        currentIndex++;
+        if (currentIndex >= playlist.size()) {
+            if (repeatMode == RepeatMode.ALL) {
+                currentIndex = 0;
+                playAt(currentIndex);
+            } else {
+                stop();
+            }
+            return;
+        }
+
         playAt(currentIndex);
     }
 
     public void playPrevious() {
         if (playlist.isEmpty()) return;
+
         if (mediaPlayer != null && mediaPlayer.getCurrentTime().toMillis() > 3000) {
             mediaPlayer.seek(Duration.ZERO);
             return;
         }
+
         currentIndex--;
+
         if (currentIndex < 0) {
-            currentIndex = 0;
-            mediaPlayer.seek(Duration.ZERO);
+            if (repeatMode == RepeatMode.ALL) {
+                currentIndex = playlist.size() - 1;
+                playAt(currentIndex);
+            } else {
+                currentIndex = 0;
+                mediaPlayer.seek(Duration.ZERO);
+            }
             return;
         }
+
         playAt(currentIndex);
     }
+
 
 
     public void setShuffle(boolean on) { this.shuffle = on; }
@@ -132,6 +171,8 @@ public class AudioPlayer extends HBox {
         
         prevButton = new Button("⏮");
         nextButton = new Button("⏭");
+        repeatButton = new Button("->");
+        shuffleButton = new Button("🔀");
         playButton = new Button("▶");
         pauseButton = new Button("⏸");
         stopButton = new Button("⏹");
@@ -150,8 +191,8 @@ public class AudioPlayer extends HBox {
         
         this.getChildren().addAll(
             currentTrack, progressSlider, timeLabel, prevButton, nextButton, 
-            playButton, pauseButton, stopButton, downloadButton, volumeSlider
-        );
+            playButton, pauseButton, stopButton, downloadButton, repeatButton,
+            shuffleButton, volumeSlider);
 
         playlistView = new ListView<>();
         playlistView.setPrefWidth(250);
@@ -182,7 +223,29 @@ public class AudioPlayer extends HBox {
 
         prevButton.setOnAction(e -> playPrevious());
         nextButton.setOnAction(e -> playNext());
-
+        shuffleButton.setOnAction(e -> {
+        shuffle = !shuffle;
+        shuffleButton.setOpacity(shuffle ? 1.0 : 0.5);
+        });
+        repeatButton.setOnAction(e -> {
+            switch (repeatMode) {
+                case NONE -> {
+                    repeatMode = RepeatMode.ALL;
+                    repeatButton.setText("🔁");
+                    repeatButton.setOpacity(1.0);
+                }
+                case ALL -> {
+                    repeatMode = RepeatMode.ONE;
+                    repeatButton.setText("🔁1");
+                    repeatButton.setOpacity(0.7);
+                }
+                case ONE -> {
+                    repeatMode = RepeatMode.NONE;
+                    repeatButton.setText("->");
+                    repeatButton.setOpacity(0.5);
+                }
+            }
+        });
         volumeSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
             if (mediaPlayer != null) {
                 mediaPlayer.setVolume(newVal.doubleValue() / 100.0);
@@ -288,11 +351,16 @@ public class AudioPlayer extends HBox {
         
         mediaPlayer.setOnEndOfMedia(() -> {
             Platform.runLater(() -> {
-                isPlaying = false;
-                playNext();
+                if (repeatMode == RepeatMode.ONE) {
+                    mediaPlayer.seek(Duration.ZERO);
+                    mediaPlayer.play();
+                } else {
+                    playNext();
+                }
                 updateUI();
             });
         });
+
         
         mediaPlayer.setOnError(() -> {
             Platform.runLater(() -> {
@@ -385,6 +453,30 @@ public class AudioPlayer extends HBox {
         if (currentModel != null && fileEngine != null) {
             System.out.println("Downloading: " + currentModel.toString());
             fileEngine.downloadMedia(currentModel);
+        }
+    }
+
+    private void playNextOrLoop() {
+        currentIndex++;
+        if (currentIndex >= playlist.size()) {
+            if (repeatMode == RepeatMode.ALL) {
+                currentIndex = 0;
+            } else {
+                currentIndex = -1;
+                stop();
+                return;
+            }
+        }
+        playAt(currentIndex);
+    }
+
+    private void playNextOrStop() {
+        currentIndex++;
+        if (currentIndex >= playlist.size()) {
+            currentIndex = -1;
+            stop();
+        } else {
+            playAt(currentIndex);
         }
     }
 

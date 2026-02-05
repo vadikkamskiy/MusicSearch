@@ -20,7 +20,6 @@ public class AudioSearchProvider implements MediaSearchProvider {
 
     String currentQuery = "";
     int currentPage = 1;
-    private List<MediaModel> LocalFiles = new ArrayList<>();
     List<MediaModel> results = new ArrayList<>();
     private int page = 0;
     private int totalPages = 1;

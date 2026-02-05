@@ -34,7 +34,7 @@ public class App extends Application {
         primaryStage.setTitle("Audio Search");
 
         primaryStage.setScene(mainWindow.getScene());
-        primaryStage.setMinWidth(1020);
+        primaryStage.setMinWidth(1080);
         primaryStage.setMinHeight(480);
         primaryStage.show();
         primaryStage.setOnCloseRequest(event->{

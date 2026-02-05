@@ -17,6 +17,7 @@ import musicsearch.service.Events.ArtistSearchEvent;
 import musicsearch.service.Events.TrackDownloadEvent;
 import musicsearch.service.FileEngine;
 import musicsearch.models.CurrentTrackListener;
+import musicsearch.models.MediaFilter;
 import musicsearch.models.MediaModel;
 import musicsearch.models.PlaybackListener;
 
@@ -81,6 +82,15 @@ public class MainWindow {
 
         SearchWidget searchWidget = new SearchWidget(searchEngine);
         audioPlayer.setSearchWidget(searchWidget);
+        audioPlayer.setVisible(false);
+        audioPlayer.setManaged(false);
+
+        searchWidget.setMediaTypeListener(filter -> {
+            boolean showPlayer = filter == MediaFilter.AUDIO;
+
+            audioPlayer.setVisible(showPlayer);
+            audioPlayer.setManaged(showPlayer);
+        });
 
         setupGlobalEventListeners();
         scrollPane.setFitToWidth(true);
@@ -98,7 +108,7 @@ public class MainWindow {
         root.setTop(searchWidget.getWidget());
         root.setCenter(scrollPane);
 
-        scene = new Scene(root, 1005, 600);
+        scene = new Scene(root, 1020, 600);
         root.setBottom(audioPlayer);
 
         CurrentTrackListener widgetTracker = new CurrentTrackListener() {

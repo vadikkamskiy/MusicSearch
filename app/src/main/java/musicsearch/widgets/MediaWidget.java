@@ -440,6 +440,9 @@ public class MediaWidget extends VBox implements CurrentTrackListener {
 
         MenuItem playItem = new MenuItem("Play");
         playItem.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
+
+        MenuItem findLyricsItem = new MenuItem("Find Lyrics");
+        findLyricsItem.setStyle("-fx-text-fill: #D6D6E3; -fx-font-size: 14px;");
         playItem.setOnAction(e -> {
             if (playbackListener != null) {
                 if (parentPlaylist != null && !parentPlaylist.isEmpty() && thisIndex >= 0) {

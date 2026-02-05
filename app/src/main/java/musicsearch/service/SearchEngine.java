@@ -1,10 +1,5 @@
 package musicsearch.service;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-
-import ch.qos.logback.core.model.Model;
-
 import org.jaudiotagger.audio.AudioFile;
 import org.jaudiotagger.audio.AudioFileIO;
 import org.jaudiotagger.tag.FieldKey;
@@ -19,12 +14,6 @@ import javafx.collections.FXCollections;
 import javafx.scene.layout.GridPane;
 import javafx.stage.Stage;
 
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
-
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -47,6 +36,7 @@ public class SearchEngine {
     private final ListProperty<MediaModel> results = new SimpleListProperty<>(
             FXCollections.observableArrayList()
     );
+    private List<MediaModel> homeModels = new ArrayList<>();
     private List<MediaModel> LocalFiles = new ArrayList<>();
     private CurrentTrackListener currentTrackListener;
     private FindLyrics lyricsFinder = new FindLyrics();
@@ -195,14 +185,14 @@ public class SearchEngine {
         lyricsFinder.searchAndShowLyrics((Stage) mediaLayout.getScene().getWindow(), track);
     }
 
-    // private void searchEventListener() {
-    //     EventBus.subscribe(ArtistSearchEvent.class, event -> {
-    //         search(event.artist);
-    //     });
-    //     EventBus.subscribe(LyricSearchEvent.class, event-> {
-    //         findLyrics(event.track);
-    //     });
-    // }
+    private void searchEventListener() {
+        EventBus.subscribe(ArtistSearchEvent.class, event -> {
+            search(event.artist);
+        });
+        EventBus.subscribe(LyricSearchEvent.class, event-> {
+            findLyrics(event.track);
+        });
+    }
 
     public void loadMoreResults() {
         executor.submit(() -> {
@@ -241,9 +231,5 @@ public class SearchEngine {
 
     public List<MediaModel> getResults() {
         return new ArrayList<>(results.get());
-    }
-
-    private void handleLyricSearch(LyricSearchEvent event) {
-        findLyrics(event.track.toString());
     }
 }
