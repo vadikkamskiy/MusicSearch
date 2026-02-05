@@ -249,6 +249,11 @@ public class AudioPlayer extends HBox {
             currentTrack.setText("Error: " + e.getMessage());
             updateUI();
         }
+        if(currentModel != null && currentModel.getDownladed() == true) {
+            downloadButton.setVisible(false); 
+        }else{
+            downloadButton.setVisible(true);
+        }
     }
 
     private void setupMediaPlayerListeners() {

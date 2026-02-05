@@ -31,4 +31,8 @@ public abstract class MediaModel {
     public void setDownloaded(boolean downloaded) {
         isDownloaded = downloaded;
     }
+
+    public boolean getDownladed(){
+        return isDownloaded;
+    }
 }
