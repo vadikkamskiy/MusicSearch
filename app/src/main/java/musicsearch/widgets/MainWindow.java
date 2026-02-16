@@ -87,9 +87,13 @@ public class MainWindow {
 
         searchWidget.setMediaTypeListener(filter -> {
             boolean showPlayer = filter == MediaFilter.AUDIO;
-
-            audioPlayer.setVisible(showPlayer);
-            audioPlayer.setManaged(showPlayer);
+            if(showPlayer || audioPlayer.isPlaying()) {
+                audioPlayer.setVisible(true);
+                audioPlayer.setManaged(true);
+            }else {
+                audioPlayer.setVisible(false);
+                audioPlayer.setManaged(false);
+            }
         });
 
         setupGlobalEventListeners();
